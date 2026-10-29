@@ -3,6 +3,10 @@
 All notable changes are listed here; release notes are in
 [RELEASE.md](RELEASE.md).
 
+## v0.1.1 (2026-10-29)
+
+- go-canopen v0.2.0: SDO block transfers of empty values no longer time out.
+
 ## v0.1.0 (2026-10-29)
 
 First release: a CANopen command-line toolkit on go-canopen and go-canbus

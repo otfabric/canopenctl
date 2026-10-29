@@ -6,6 +6,22 @@ with the version bump). It computes the tag, builds the binaries for linux
 publishes the GitHub release with the section of this file that matches the
 version as its notes. Add the section before running it.
 
+## v0.1.1
+
+**Date:** 2026-10-29
+**Previous release:** v0.1.0
+
+Built on go-canopen v0.2.0 (was v0.1.0).
+
+- `sdo read` and `sdo write` with `--block` now handle empty values. A block
+  transfer of 0 bytes may end without a data segment: Lely's SDO server sends
+  such an upload, python canopen's client such a download. go-canopen v0.1.0
+  read that end message as an out-of-order segment and timed out; v0.2.0
+  accepts it.
+- The interop suite pins the canopen-interop v0.1.0 images by digest.
+
+---
+
 ## v0.1.0
 
 **Date:** 2026-10-29
