@@ -10,11 +10,25 @@
     "schemaVersion": {"type": "string", "pattern": "^1\\."},
     "command": {"enum": ["version", "sdo read", "sdo write", "sdo dump", "nmt", "scan", "sync", "time", "pdo show", "pdo map",
       "eds validate", "eds show", "eds convert", "eds generate", "dcf apply", "dcf export",
-      "cia402 state", "cia402 enable", "cia402 disable", "cia402 fault-reset", "cia402 quick-stop", "cia402 mode", "cia402 move", "cia402 velocity"]},
+      "cia402 state", "cia402 enable", "cia402 disable", "cia402 fault-reset", "cia402 quick-stop", "cia402 mode", "cia402 move", "cia402 velocity",
+      "lss switch", "lss select", "lss inquire", "lss configure", "lss activate", "lss identify", "lss fastscan", "lss assign-all",
+      "mpdo configure", "mpdo scanner", "mpdo dispatcher", "boot", "cdcf convert", "cdcf show", "cdcf apply", "store", "restore",
+      "program download", "program control", "program status"]},
     "result": {"type": "object"}
   },
   "$defs": {
     "node": {"type": "integer", "minimum": 0, "maximum": 127},
+    "lssAddress": {
+      "type": "object",
+      "required": ["address", "vendorId", "productCode", "revisionNumber", "serialNumber"],
+      "properties": {
+        "address": {"type": "string", "pattern": "^[0-9A-F]{8}:[0-9A-F]{8}:[0-9A-F]{8}:[0-9A-F]{8}$"},
+        "vendorId": {"$ref": "#/$defs/hex32"}, "productCode": {"$ref": "#/$defs/hex32"},
+        "revisionNumber": {"$ref": "#/$defs/hex32"}, "serialNumber": {"$ref": "#/$defs/hex32"}
+      }
+    },
+    "entries": {"type": "array", "items": {"type": "object", "required": ["index", "subIndex", "key", "data"],
+      "properties": {"key": {"$ref": "#/$defs/key"}, "data": {"$ref": "#/$defs/hex"}, "name": {"type": "string"}}}},
     "hex": {"type": "string", "pattern": "^([0-9a-f]{2})*$"},
     "hex32": {"type": "string", "pattern": "^0x[0-9A-F]{8}$"},
     "key": {"type": "string", "pattern": "^0x[0-9A-F]{4}:[0-9A-F]{2}$"},
@@ -28,7 +42,7 @@
         "node": {"$ref": "#/$defs/node"}, "index": {"$ref": "#/$defs/index"}, "subIndex": {"$ref": "#/$defs/subIndex"},
         "key": {"$ref": "#/$defs/key"}, "name": {"type": "string"}, "type": {"type": "string"},
         "typeSource": {"enum": ["flag", "eds", "guess", "file"]}, "size": {"type": "integer", "minimum": 0},
-        "data": {"$ref": "#/$defs/hex"}, "value": {"$ref": "#/$defs/value"}, "block": {"type": "boolean"},
+        "data": {"$ref": "#/$defs/hex"}, "value": {"$ref": "#/$defs/value"}, "block": {"type": "boolean"}, "fd": {"type": "boolean"},
         "verified": {"type": "boolean"}, "file": {"type": "string"}
       }
     },
@@ -51,7 +65,7 @@
     "file": {
       "type": "object",
       "required": ["input", "output", "kind", "bytes", "sha256"],
-      "properties": {"input": {"type": "string"}, "output": {"type": "string"}, "kind": {"enum": ["dcf", "eds", "go"]},
+      "properties": {"input": {"type": "string"}, "output": {"type": "string"}, "kind": {"enum": ["dcf", "eds", "go", "cdcf"]},
         "nodeId": {"$ref": "#/$defs/node"}, "bytes": {"type": "integer"}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
     },
     "drive": {
@@ -117,12 +131,58 @@
           "required": ["index", "subIndex", "key", "object", "name", "objectType", "type", "access", "pdoMapping", "default"],
           "properties": {"key": {"$ref": "#/$defs/key"}, "access": {"enum": ["ro", "wo", "rw", "rwr", "rww", "const"]},
             "objectType": {"enum": ["NULL", "DOMAIN", "DEFTYPE", "DEFSTRUCT", "VAR", "ARRAY", "RECORD"]}}}}}}}}},
-    {"if": {"properties": {"command": {"enum": ["eds convert", "eds generate", "dcf export"]}}}, "then": {"properties": {"result": {"$ref": "#/$defs/file"}}}},
-    {"if": {"properties": {"command": {"const": "dcf apply"}}}, "then": {"properties": {"result": {
+    {"if": {"properties": {"command": {"enum": ["eds convert", "eds generate", "dcf export", "cdcf convert"]}}}, "then": {"properties": {"result": {"$ref": "#/$defs/file"}}}},
+    {"if": {"properties": {"command": {"enum": ["dcf apply", "cdcf apply"]}}}, "then": {"properties": {"result": {
       "required": ["node", "file", "dryRun", "entries"],
       "properties": {"node": {"$ref": "#/$defs/node"}, "file": {"type": "string"}, "dryRun": {"type": "boolean"},
-        "entries": {"type": "array", "items": {"type": "object", "required": ["index", "subIndex", "key", "data"],
-          "properties": {"key": {"$ref": "#/$defs/key"}, "data": {"$ref": "#/$defs/hex"}, "name": {"type": "string"}}}}}}}}},
+        "entries": {"$ref": "#/$defs/entries"}}}}}},
+    {"if": {"properties": {"command": {"const": "cdcf show"}}}, "then": {"properties": {"result": {
+      "required": ["file", "format", "size", "entries"],
+      "properties": {"file": {"type": "string"}, "format": {"enum": ["cdcf", "dcf"]}, "size": {"type": "integer", "minimum": 4},
+        "entries": {"$ref": "#/$defs/entries"}}}}}},
+    {"if": {"properties": {"command": {"enum": ["lss switch", "lss select", "lss inquire", "lss configure", "lss activate", "lss identify"]}}}, "then": {"properties": {"result": {
+      "required": ["action"],
+      "properties": {"action": {"enum": ["switch", "select", "inquire", "configure", "activate", "identify"]},
+        "state": {"enum": ["waiting", "configuration"]}, "address": {"$ref": "#/$defs/lssAddress"},
+        "nodeId": {"type": "integer", "minimum": 1, "maximum": 255}, "configured": {"type": "boolean"}, "bitRate": {"type": "string"},
+        "stored": {"type": "boolean"}, "delayMs": {"type": "integer", "minimum": 0, "maximum": 65535}, "found": {"type": "boolean"},
+        "nonConfigured": {"type": "boolean"}}}}}},
+    {"if": {"properties": {"command": {"const": "lss fastscan"}}}, "then": {"properties": {"result": {
+      "required": ["devices"], "properties": {"devices": {"type": "array", "items": {"$ref": "#/$defs/lssAddress"}}}}}}},
+    {"if": {"properties": {"command": {"const": "lss assign-all"}}}, "then": {"properties": {"result": {
+      "required": ["first", "stored", "assignments"],
+      "properties": {"first": {"$ref": "#/$defs/node"}, "stored": {"type": "boolean"}, "error": {"type": "string"},
+        "assignments": {"type": "array", "items": {"allOf": [{"$ref": "#/$defs/lssAddress"}], "required": ["nodeId"],
+          "properties": {"nodeId": {"$ref": "#/$defs/node"}}}}}}}}},
+    {"if": {"properties": {"command": {"const": "mpdo configure"}}}, "then": {"properties": {"result": {
+      "required": ["node", "kind", "pdo", "mode", "cobId", "inhibitTime"],
+      "properties": {"node": {"$ref": "#/$defs/node"}, "kind": {"enum": ["tpdo", "rpdo"]}, "pdo": {"type": "integer", "minimum": 1, "maximum": 512},
+        "mode": {"enum": ["SAM", "DAM"]}, "cobId": {"type": "string", "pattern": "^0x[0-9A-F]+$"}, "inhibitTime": {"type": "integer"}}}}}},
+    {"if": {"properties": {"command": {"enum": ["mpdo scanner", "mpdo dispatcher"]}}}, "then": {"properties": {"result": {
+      "required": ["node", "list", "index", "entries"],
+      "properties": {"node": {"$ref": "#/$defs/node"}, "list": {"type": "integer", "minimum": 1, "maximum": 48},
+        "index": {"type": "string", "pattern": "^0x[0-9A-F]{4}$"}, "entries": {"type": "array", "items": {"type": "string"}},
+        "scanner": {"type": "array", "items": {"type": "object", "required": ["index", "subIndex", "blockSize"]}},
+        "dispatcher": {"type": "array", "items": {"type": "object", "required": ["producer", "producerIndex", "producerSubIndex", "index", "subIndex", "blockSize"]}}}}}}},
+    {"if": {"properties": {"command": {"const": "boot"}}}, "then": {"properties": {"result": {
+      "required": ["master", "lss", "started", "slaves", "booted", "failed", "elapsedMs"],
+      "properties": {"master": {"$ref": "#/$defs/node"}, "lss": {"type": "boolean"}, "started": {"type": "boolean"},
+        "booted": {"type": "integer"}, "failed": {"type": "integer"}, "error": {"type": "string"}, "elapsedMs": {"type": "integer"},
+        "slaves": {"type": "array", "items": {"type": "object", "required": ["node", "mandatory", "entries", "booted", "status"],
+          "properties": {"node": {"$ref": "#/$defs/node"}, "mandatory": {"type": "boolean"}, "config": {"type": "string"},
+            "entries": {"type": "integer"}, "expected": {"$ref": "#/$defs/lssAddress"}, "booted": {"type": "boolean"},
+            "status": {"type": "string"}, "code": {"type": "string", "pattern": "^[A-O]$"}, "error": {"type": "string"},
+            "lss": {"$ref": "#/$defs/lssAddress"}}}}}}}}},
+    {"if": {"properties": {"command": {"enum": ["store", "restore"]}}}, "then": {"properties": {"result": {
+      "required": ["node", "action", "group", "groupName", "key"],
+      "properties": {"node": {"$ref": "#/$defs/node"}, "action": {"enum": ["store", "restore"]}, "group": {"type": "integer", "minimum": 1, "maximum": 127},
+        "groupName": {"type": "string"}, "key": {"$ref": "#/$defs/key"}, "reset": {"type": "boolean"}}}}}},
+    {"if": {"properties": {"command": {"pattern": "^program "}}}, "then": {"properties": {"result": {
+      "required": ["node", "program", "action"],
+      "properties": {"node": {"$ref": "#/$defs/node"}, "program": {"type": "integer", "minimum": 1, "maximum": 254},
+        "action": {"enum": ["download", "status", "stop", "start", "reset", "clear"]}, "file": {"type": "string"}, "bytes": {"type": "integer"},
+        "identification": {"$ref": "#/$defs/hex32"}, "state": {"type": "string"}, "stateValue": {"type": "integer", "minimum": 0, "maximum": 255},
+        "flashStatus": {"$ref": "#/$defs/hex32"}, "flashText": {"type": "string"}, "elapsedMs": {"type": "integer"}}}}}},
     {"if": {"properties": {"command": {"pattern": "^cia402 "}}}, "then": {"properties": {"result": {"$ref": "#/$defs/drive"}}}}
   ]
 }

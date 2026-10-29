@@ -5,17 +5,37 @@
   own drivers (PEAK PCAN-Basic, Kvaser CANlib, Vector XL, IXXAT) are not
   supported outside Linux, where their SocketCAN drivers work. slcan has no
   error frames and no hardware filters.
-- **Classical CAN only.** CANopen FD (CiA 1301) is not supported: PDOs carry
-  at most 8 bytes, SDO is the classical protocol. `monitor` and `decode` skip
-  CAN FD and error frames (counted in `frames`).
+- **CANopen FD** (`--fd`, CiA 1301) is offered where a command reads or writes
+  dictionaries, sends NMT/SYNC or receives heartbeats and emergencies, and by
+  `simulate`. Not with `--fd`: `pdo watch` (FD PDOs; `monitor --fd` shows
+  them undecoded as PDOs), `cia402` (SDO only), `dcf export` (SDO only),
+  `time` (TIME is classical in CANopen FD too) and `lss` (classical frames).
+  USDO transfers go to one node: the group and broadcast transfers of the
+  USDO (`UploadMulti`/`DownloadMulti`) are not commands. The USDO
+  segmented-transfer layout is go-canopen's interpretation of the public
+  sources (see its usdo package): other stacks may differ. slcan adapters
+  are opened without a data phase bit rate. `monitor` and `decode` skip
+  error frames (counted in `frames`).
 - **Predefined connection set.** `monitor` and `decode` interpret frames by
   their default identifiers (as Wireshark does); a device that moved a PDO or
   SDO channel elsewhere is decoded by the identifier's default meaning. The
   SDO commands use the default SDO channel (0x600/0x580 + node-ID); other
   channels (0x1200 sub 1/2, 0x1280..) are not selectable.
-- **No LSS.** Layer setting services (CiA 305: node-ID and bit rate
-  configuration, fastscan) are decoded by `monitor` but not offered as
-  commands; `scan` finds configured nodes only.
+- **LSS** (`lss`) acts on one network with one LSS master: canopenctl does not
+  detect another master. `lss activate` switches the devices' bit rate, not
+  canopenctl's own interface. `lss assign-all` cannot see node-IDs already
+  used by configured devices: give them with `--avoid`. Table selectors
+  other than the CiA 301 table are not offered.
+- **`boot`** runs go-canopen's CiA 302 manager for one boot-up and exits:
+  it does not stay as the network's NMT master (no supervision of the
+  slaves afterwards), sends the slaves no heartbeat consumer configuration
+  of its own, and does not implement the flying master, the configuration
+  file 0x1F20 or software updates from 0x1F58 (use `program download`).
+  Optional slaves that do not boot within a second after the mandatory ones
+  are reported as not booted.
+- **`program`** writes the image as it is (no file format such as Intel
+  HEX is parsed) to one program number; `--crc32` assumes the device
+  reports the CRC-32 of the image as 0x1F56, as `simulate --program` does.
 - **No node guarding master.** `heartbeat watch` follows heartbeats (and
   reads node guarding responses as heartbeats) but does not send guard
   requests.

@@ -146,3 +146,16 @@ func TestSimulateVirtual(t *testing.T) {
 	r := run(t, "", "simulate", "-i", "virtual", "--node-id", "5", "--duration", "200ms", "--format", "json")
 	want(t, r, 0, `"type":"ready"`, `"type":"summary"`)
 }
+
+// TestCDCFChain: DCF → concise DCF → show → apply --dry-run.
+func TestCDCFChain(t *testing.T) {
+	out := filepath.Join(t.TempDir(), "node37.cdcf")
+	want(t, run(t, "", "cdcf", "convert", testdata("node37.dcf"), "-o", out), 0, "cdcf")
+	r := run(t, "", "cdcf", "show", out, "--format", "json")
+	want(t, r, 0)
+	if len(doc(t, r.out)["result"].(map[string]any)["entries"].([]any)) == 0 {
+		t.Fatal(r.out)
+	}
+	want(t, run(t, "", "cdcf", "apply", "37", out, "--dry-run"), 0, "would be written to node 37")
+	want(t, run(t, "", "lss", "switch", "waiting", "-i", "slcan:/dev/null"), 9, "--yes")
+}

@@ -10,6 +10,7 @@ import (
 	"github.com/otfabric/canopenctl/internal/cli"
 	"github.com/otfabric/canopenctl/internal/errs"
 	"github.com/otfabric/go-canopen"
+	"github.com/otfabric/go-canopen/dissect"
 	"github.com/otfabric/go-canopen/emcy"
 	syncobj "github.com/otfabric/go-canopen/sync"
 	"github.com/otfabric/go-canopen/timestamp"
@@ -63,18 +64,25 @@ code 0x0000 is an error reset. It never transmits.`,
 					want[n] = true
 				}
 			}
-			bus, err := openBus(bf.iface, openOpts{passive: true})
+			if err := bf.checkFD(); err != nil {
+				return err
+			}
+			bus, err := bf.open(true)
 			if err != nil {
 				return err
 			}
 			defer func() { _ = bus.Close() }()
 			events := make(chan emcy.Event, 1024)
-			cons := emcy.NewConsumer(bus, emcy.WithHandler(func(e emcy.Event) {
+			eopts := []emcy.Option{emcy.WithHandler(func(e emcy.Event) {
 				select {
 				case events <- e:
 				default:
 				}
-			}))
+			})}
+			if bf.fd {
+				eopts = append(eopts, emcy.WithFD(bf.brs))
+			}
+			cons := emcy.NewConsumer(bus, eopts...)
 			if err := cons.Start(); err != nil {
 				return err
 			}
@@ -98,6 +106,11 @@ code 0x0000 is an error reset. It never transmits.`,
 					if e.IsReset() {
 						text = fmt.Sprintf("(%s) node %d EMCY error reset (no error active), register %s", r.Timestamp, e.Node, r.Register)
 					}
+					if x := e.FD; x != nil {
+						r.FD = &dissect.EMCYFD{LogicalDevice: x.LogicalDevice, CiASpec: x.CiASpec, Status: x.Status,
+							Milliseconds: x.Time.Ms, Days: x.Time.Days, Time: x.Time.Time()}
+						text += fmt.Sprintf(" (FD: logical device %d, CiA %d, status 0x%02X)", x.LogicalDevice, x.CiASpec, x.Status)
+					}
 					if err := st.Record("emcy", text, r); err != nil {
 						return errs.New(errs.KindOutput, errs.CodeOutputFailed, "write output: %w", err)
 					}
@@ -114,6 +127,7 @@ code 0x0000 is an error reset. It never transmits.`,
 		},
 	}
 	bf.add(w, false)
+	bf.addFD(w, "decode 20-byte CANopen FD emergencies")
 	w.Flags().StringVar(&nodes, "node", "", "Only these nodes: 5, 1-10,20")
 	w.Flags().IntVarP(&count, "count", "n", 0, "Stop after this many messages (0: no limit)")
 	w.Flags().DurationVar(&duration, "duration", 0, "Stop after this time (0: until Ctrl-C)")
@@ -225,12 +239,19 @@ microseconds): use it for tests and commissioning, not as a precision clock.`,
 			if err := bf.check("sync"); err != nil {
 				return err
 			}
-			bus, err := openBus(bf.iface, openOpts{})
+			if err := bf.checkFD(); err != nil {
+				return err
+			}
+			bus, err := bf.open(false)
 			if err != nil {
 				return err
 			}
 			defer func() { _ = bus.Close() }()
-			prod, err := syncobj.NewProducer(bus, syncobj.WithCOBID(cobID), syncobj.WithOverflow(uint8(overflow)))
+			sopts := []syncobj.Option{syncobj.WithCOBID(cobID), syncobj.WithOverflow(uint8(overflow))}
+			if bf.fd {
+				sopts = append(sopts, syncobj.WithFD(bf.brs))
+			}
+			prod, err := syncobj.NewProducer(bus, sopts...)
 			if err != nil {
 				return errs.Invalid("%v", err)
 			}
@@ -243,6 +264,7 @@ microseconds): use it for tests and commissioning, not as a precision clock.`,
 		},
 	}
 	bf.add(c, true)
+	bf.addFD(c, "send the SYNC in CAN FD frames")
 	p.add(c, 10, 100*time.Millisecond)
 	c.Flags().IntVar(&overflow, "counter", 0, "SYNC counter overflow value: 0 (no counter) or 2..240")
 	c.Flags().StringVar(&cob, "cob-id", "80", "COB-ID of the SYNC message (hexadecimal)")

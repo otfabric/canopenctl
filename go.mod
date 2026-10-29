@@ -4,7 +4,7 @@ go 1.23
 
 require (
 	github.com/otfabric/go-canbus v0.7.0
-	github.com/otfabric/go-canopen v0.2.0
+	github.com/otfabric/go-canopen v0.3.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/spf13/cobra v1.10.2
 )

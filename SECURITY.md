@@ -10,19 +10,22 @@ otfabric/canopenctl ("Report a vulnerability"), not in public issues.
 canopenctl talks to CANopen devices that control physical processes:
 drives, valves, heaters, power electronics. It is read-only by default:
 
-- `monitor`, `decode`, `heartbeat watch`, `emcy watch` and `pdo watch` with
-  `--cob-id`/`--map` never transmit (slcan adapters are opened listen-only).
-- `sdo read`, `sdo dump`, `scan`, `pdo show`, `pdo watch`, `dcf export` and
-  `cia402 state` send SDO read requests only. They change no device state
+- `monitor`, `decode`, `heartbeat watch`, `emcy watch`, `mpdo watch` and
+  `pdo watch` with `--cob-id`/`--map` never transmit (slcan adapters are opened listen-only).
+- `sdo read`, `sdo dump`, `scan`, `pdo show`, `pdo watch`, `dcf export`,
+  `program status` and `cia402 state` send SDO (or USDO) read requests only. They change no device state
   by the standard, but a device may implement side effects on reads of
   vendor objects; `scan` addresses every node-ID.
 - Every state-changing command — `sdo write`, `nmt`, `pdo map`, `dcf apply`,
-  `cia402 enable/disable/fault-reset/quick-stop/mode/move/velocity`,
-  `sync`, `time`, `simulate` — requires `--yes` on any interface that is not
+  `cdcf apply`, `cia402 enable/disable/fault-reset/quick-stop/mode/move/velocity`,
+  `sync`, `time`, every `lss` command, `mpdo configure/scanner/dispatcher`,
+  `boot` (which resets every node), `store`, `restore`, `program
+  download/control` (which replace or stop a device's program), `simulate` —
+  requires `--yes` on any interface that is not
   virtual (vcan, vxcan or the in-process bus), and validates its input
   before the first frame.
 - Productions are bounded (`--count`, `--duration`, `--timeout`,
-  `--step-timeout`).
+  `--step-timeout`, `--max-time`).
 
 A CANopen network has no authentication: an NMT command, a controlword write
 or a SYNC from any node is obeyed. Test on a vcan interface or a test bench

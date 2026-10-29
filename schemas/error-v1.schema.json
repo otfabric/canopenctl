@@ -17,7 +17,7 @@
         "code": {"type": "string", "pattern": "^[a-z_]+$"},
         "message": {"type": "string"},
         "abort": {
-          "description": "The SDO abort of an SDO failure.",
+          "description": "The SDO abort of an SDO failure; for a USDO (CANopen FD) failure the SDO equivalent of the USDO abort, which usdoCode holds.",
           "type": "object",
           "required": ["code", "index", "subIndex", "remote"],
           "additionalProperties": false,
@@ -26,7 +26,8 @@
             "text": {"type": "string"},
             "index": {"type": "integer", "minimum": 0, "maximum": 65535},
             "subIndex": {"type": "integer", "minimum": 0, "maximum": 255},
-            "remote": {"type": "boolean"}
+            "remote": {"type": "boolean"},
+            "usdoCode": {"type": "string", "pattern": "^0x[0-9A-F]{2}$"}
           }
         },
         "drive": {

@@ -338,3 +338,78 @@ func FuzzParseIndexSubType(f *testing.F) {
 		_, _ = ParseNode(s, true)
 	})
 }
+
+func TestParseCiA302Inputs(t *testing.T) {
+	if v, err := ParseUint32("0x10"); err != nil || v != 16 {
+		t.Fatal(v, err)
+	}
+	if _, err := ParseUint32("4294967296"); err == nil {
+		t.Fatal("overflow")
+	}
+	a, err := ParseLSSAddress("F7A:0xC0C7:10000:00000005")
+	if err != nil || a.Vendor != 0xF7A || a.Product != 0xC0C7 || a.Revision != 0x10000 || a.Serial != 5 {
+		t.Fatal(a, err)
+	}
+	for _, bad := range []string{"", "1:2:3", "1:2:3:4:5", "x:2:3:4", "1:2:3:100000000"} {
+		if _, err := ParseLSSAddress(bad); err == nil {
+			t.Errorf("%q accepted", bad)
+		}
+	}
+	se, err := ParseScannerEntry("2000:01+3")
+	if err != nil || se.Index != 0x2000 || se.SubIndex != 1 || se.BlockSize != 3 {
+		t.Fatal(se, err)
+	}
+	for _, bad := range []string{"2000", "2000:01+x", "2000:01+0", "0:0", "2000:FF+2", "x:00", "2000:x"} {
+		if _, err := ParseScannerEntry(bad); err == nil {
+			t.Errorf("scanner %q accepted", bad)
+		}
+	}
+	de, err := ParseDispatcherEntry("5:2000:01+2=2100:03")
+	if err != nil || de.Producer != 5 || de.ProducerIndex != 0x2000 || de.ProducerSubIndex != 1 || de.BlockSize != 2 || de.Index != 0x2100 || de.SubIndex != 3 {
+		t.Fatal(de, err)
+	}
+	for _, bad := range []string{"5:2000:01", "2000:01=2100:00", "0:2000:01=2100:00", "5:x=2100:00", "5:2000:01=x", "5:2000:01=2100:00+2", "5:0:0=2100:00", "5:2000:FF+2=2100:00"} {
+		if _, err := ParseDispatcherEntry(bad); err == nil {
+			t.Errorf("dispatcher %q accepted", bad)
+		}
+	}
+	for s, want := range map[string]uint8{"all": 1, "Communication": 2, "app": 3, "manufacturer": 4, "0x7F": 127, "5": 5} {
+		if g, err := ParseStoreGroup(s); err != nil || g != want {
+			t.Errorf("%q: %d %v", s, g, err)
+		}
+	}
+	for _, bad := range []string{"0", "128", "x"} {
+		if _, err := ParseStoreGroup(bad); err == nil {
+			t.Errorf("group %q accepted", bad)
+		}
+	}
+	if n, v, err := ParseNodeValue("5 = a.dcf"); err != nil || n != 5 || v != "a.dcf" {
+		t.Fatal(n, v, err)
+	}
+	for _, bad := range []string{"5", "5=", "x=a"} {
+		if _, _, err := ParseNodeValue(bad); err == nil {
+			t.Errorf("%q accepted", bad)
+		}
+	}
+}
+
+// FuzzParseMPDOAndLSS checks that the LSS address and the MPDO list
+// entries parse to valid values or are refused, and round-trip.
+func FuzzParseMPDOAndLSS(f *testing.F) {
+	for _, s := range []string{"F7A:C0C7:10000:5", "2000:01+3", "5:2000:01+2=2100:03", "1:2:3:4", "0:0=0:0", "::::", "+"} {
+		f.Add(s)
+	}
+	f.Fuzz(func(t *testing.T, s string) {
+		if a, err := ParseLSSAddress(s); err == nil {
+			if b, err := ParseLSSAddress(a.String()); err != nil || b != a {
+				t.Fatalf("%q: %v does not round-trip: %v", s, a, err)
+			}
+		}
+		if e, err := ParseScannerEntry(s); err == nil && (e.Index == 0 || e.Validate() != nil) {
+			t.Fatalf("%q: invalid scanner entry %+v accepted", s, e)
+		}
+		if e, err := ParseDispatcherEntry(s); err == nil && (e.Index == 0 || e.ProducerIndex == 0 || !e.Producer.Valid() || e.Validate() != nil) {
+			t.Fatalf("%q: invalid dispatcher entry %+v accepted", s, e)
+		}
+	})
+}

@@ -582,15 +582,18 @@ without sending anything. <node> 0 takes the DCF's node-ID.`,
 			if dryRun {
 				return a.emit("dcf apply", r)
 			}
+			if err := bf.checkFD(); err != nil {
+				return err
+			}
 			if err := bf.check("dcf apply"); err != nil {
 				return err
 			}
-			bus, err := openBus(bf.iface, openOpts{})
+			bus, err := bf.open(false)
 			if err != nil {
 				return err
 			}
 			defer func() { _ = bus.Close() }()
-			m, err := master.New(bus, master.WithSDOOptions(sf.options()...))
+			m, err := master.New(bus, sf.masterOptions(&bf)...)
 			if err != nil {
 				return err
 			}
@@ -602,7 +605,9 @@ without sending anything. <node> 0 takes the DCF's node-ID.`,
 		},
 	}
 	bf.add(c, true)
+	bf.addFD(c, "write over USDO instead of SDO")
 	sf.add(c, false)
+	sf.addFD(c)
 	c.Flags().BoolVar(&dryRun, "dry-run", false, "List the entries without sending anything")
 	return c
 }

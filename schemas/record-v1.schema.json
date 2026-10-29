@@ -2,12 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/otfabric/canopenctl/schemas/record-v1.schema.json",
   "title": "canopenctl stream record (JSON Lines), version 1",
-  "description": "One line of a streaming command with --format json: monitor and decode (message), heartbeat watch (heartbeat), emcy watch (emcy), pdo watch (pdo), simulate (ready, state) and the summary that ends each of them. See docs/json-output.md.",
+  "description": "One line of a streaming command with --format json: monitor and decode (message), heartbeat watch (heartbeat), emcy watch (emcy), pdo watch (pdo), mpdo watch (mpdo), simulate (ready, state) and the summary that ends each of them. See docs/json-output.md.",
   "type": "object",
   "required": ["schemaVersion", "type"],
   "properties": {
     "schemaVersion": {"type": "string", "pattern": "^1\\."},
-    "type": {"enum": ["message", "heartbeat", "emcy", "pdo", "ready", "state", "summary"]}
+    "type": {"enum": ["message", "heartbeat", "emcy", "pdo", "mpdo", "ready", "state", "summary"]}
   },
   "$defs": {
     "timestamp": {"type": "string", "pattern": "^[0-9]+\\.[0-9]{6}$"},
@@ -23,7 +23,8 @@
         "register": {"type": "string", "pattern": "^0x[0-9A-F]{2}$"},
         "registerNames": {"type": "array", "items": {"type": "string"}},
         "msef": {"$ref": "#/$defs/hex"},
-        "reset": {"type": "boolean"}
+        "reset": {"type": "boolean"},
+        "fd": {"type": "object", "required": ["logicalDevice", "ciaSpec", "status", "ms", "days", "time"]}
       }
     }
   },
@@ -41,9 +42,11 @@
           "idHex": {"type": "string", "pattern": "^([0-9A-F]{3}|[0-9A-F]{8})$"},
           "extended": {"type": "boolean"},
           "remote": {"type": "boolean"},
-          "len": {"type": "integer", "minimum": 0, "maximum": 8},
+          "len": {"type": "integer", "minimum": 0, "maximum": 64},
+          "fd": {"type": "boolean"},
+          "brs": {"type": "boolean"},
           "data": {"$ref": "#/$defs/hex"},
-          "kind": {"enum": ["nmt", "sync", "time", "emcy", "tpdo", "rpdo", "sdo-request", "sdo-response", "heartbeat", "boot-up", "guard-request", "guard-response", "lss-master", "lss-slave", "unknown"]},
+          "kind": {"enum": ["nmt", "sync", "time", "emcy", "tpdo", "rpdo", "sdo-request", "sdo-response", "usdo-request", "usdo-response", "heartbeat", "boot-up", "guard-request", "guard-response", "lss-master", "lss-slave", "unknown"]},
           "node": {"$ref": "#/$defs/node"},
           "summary": {"type": "string"},
           "error": {"type": "string"},
@@ -54,6 +57,7 @@
           "pdo": {"type": "object", "required": ["number", "transmit"]},
           "sdo": {"type": "object", "required": ["client", "cs", "command", "phase", "index", "subIndex", "hasIndex"],
             "properties": {"phase": {"enum": ["initiate", "segment", "block", "sub-block", "end", "abort", "unknown"]}}},
+          "usdo": {"type": "object", "required": ["client", "dest", "destination", "cs", "command", "session", "index", "subIndex", "hasIndex"]},
           "errorControl": {"type": "object", "required": ["state", "stateName"]},
           "lss": {"type": "object", "required": ["cs", "command", "value"]}
         }
@@ -111,10 +115,27 @@
       }
     },
     {
+      "if": {"properties": {"type": {"const": "mpdo"}}},
+      "then": {
+        "required": ["cobId", "mode", "data"],
+        "properties": {
+          "timestamp": {"$ref": "#/$defs/timestamp"},
+          "cobId": {"type": "string", "pattern": "^0x[0-9A-F]+$"},
+          "mode": {"enum": ["sam", "dam", "malformed"]},
+          "node": {"$ref": "#/$defs/node"},
+          "index": {"type": "integer", "minimum": 0, "maximum": 65535}, "subIndex": {"type": "integer", "minimum": 0, "maximum": 255},
+          "key": {"type": "string", "pattern": "^0x[0-9A-F]{4}:[0-9A-F]{2}$"}, "name": {"type": "string"},
+          "data": {"$ref": "#/$defs/hex"}, "error": {"type": "string"}
+        }
+      }
+    },
+    {
       "if": {"properties": {"type": {"const": "ready"}}},
       "then": {
         "required": ["node", "state", "objects", "source", "drive"],
-        "properties": {"node": {"$ref": "#/$defs/node"}, "state": {"$ref": "#/$defs/nmtState"}, "objects": {"type": "integer"}, "source": {"type": "string"}, "drive": {"type": "boolean"}}
+        "properties": {"node": {"type": "integer", "minimum": 1, "maximum": 255}, "state": {"$ref": "#/$defs/nmtState"}, "objects": {"type": "integer"},
+          "source": {"type": "string"}, "drive": {"type": "boolean"}, "lss": {"type": "boolean"}, "fd": {"type": "boolean"},
+          "store": {"type": "string"}, "program": {"type": "boolean"}}
       }
     },
     {

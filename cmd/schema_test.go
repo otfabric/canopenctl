@@ -11,9 +11,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/otfabric/go-canopen/cdcf"
 	"github.com/otfabric/go-canopen/cia402"
 	"github.com/otfabric/go-canopen/node"
 	"github.com/otfabric/go-canopen/od"
+	"github.com/otfabric/go-canopen/program"
+	"github.com/otfabric/go-canopen/store"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
@@ -168,4 +171,57 @@ func TestGoldenJSON(t *testing.T) {
 	golden(t, "scan.json", run(t, "", "scan", "--nodes", "4-6", "-i", "virtual", "--format", "json").out)
 	golden(t, "dcf-apply-dry.json", run(t, "", "dcf", "apply", "37", "testdata/node37.dcf", "--dry-run", "--format", "json").out)
 	golden(t, "needs-yes.json", run(t, "", "sdo", "write", "5", "0x1017", "0", "1", "-t", "u16", "-i", "slcan:/dev/null", "--format", "json").out)
+}
+
+// TestSchemasCiA302 runs the LSS, MPDO, CiA 302 and CANopen FD commands
+// with --format json and validates what they write.
+func TestSchemasCiA302(t *testing.T) {
+	fresh(t)
+	dir := t.TempDir()
+	lssNode(t, 0, 0x2001)
+	p, _ := mpdoNodes(t)
+	_ = p
+	d, _ := builtinDictionary(8, false)
+	_ = store.AddObjects(d)
+	simNode(t, d, node.WithStore(store.NewMemory()), node.WithProgram(program.Config{Handler: &memProgram{}}))
+	fw := filepath.Join(dir, "fw.bin")
+	_ = os.WriteFile(fw, []byte("firmware"), 0o644)
+	cfg := writeConcise(t, cdcf.Entry{Index: simText, Data: []byte("x")})
+	j := func(args ...string) {
+		t.Helper()
+		validateOutput(t, run(t, "", append(args, "--format", "json")...))
+	}
+	v := []string{"-i", "virtual"}
+	a := lssAddr(0x2001)
+	for _, c := range [][]string{
+		{"lss", "switch", "waiting"},
+		{"lss", "identify"},
+		{"lss", "identify", "--address", a},
+		{"lss", "fastscan", "--window", "10ms", "--vendor", "0xF7A", "--product", "0xC0C7"},
+		{"lss", "inquire", "--address", a},
+		{"lss", "select", a},
+		{"lss", "inquire"},
+		{"lss", "configure", "--node-id", "none", "--bit-rate", "auto"},
+		{"lss", "activate", "--delay", "0s"},
+		{"lss", "switch", "waiting"},
+		{"lss", "assign-all", "--first", "20", "--window", "10ms", "--vendor", "0xF7A", "--product", "0xC0C7"},
+		{"lss", "select", "1:2:3:4", "--timeout", "10ms", "--retries", "0"},
+		{"mpdo", "configure", "5", "--tpdo", "2", "--mode", "sam", "--cob-id", "285"},
+		{"mpdo", "scanner", "5", "--entry", "2001:00"},
+		{"mpdo", "dispatcher", "6", "--entry", "5:2001:00=2001:00"},
+		{"mpdo", "watch", "--cob-id", "285", "--duration", "10ms"},
+		{"cdcf", "convert", "testdata/node37.dcf", "-o", filepath.Join(dir, "x.cdcf")},
+		{"cdcf", "show", cfg},
+		{"cdcf", "apply", "8", cfg},
+		{"cdcf", "apply", "8", cfg, "--dry-run"},
+		{"store", "8"},
+		{"restore", "8"},
+		{"program", "download", "8", fw, "--poll", "5ms"},
+		{"program", "control", "8", "stop"},
+		{"program", "status", "8"},
+		{"boot", "--slave", "8=" + cfg, "--slave", "9", "--optional", "9", "--no-start"},
+		{"simulate", "--node-id", "30", "--duration", "10ms", "--fd", "--program"},
+	} {
+		j(append(c, v...)...)
+	}
 }

@@ -3,6 +3,29 @@
 All notable changes are listed here; release notes are in
 [RELEASE.md](RELEASE.md).
 
+## v0.2.0 (2026-10-29)
+
+On go-canopen v0.3.0: LSS, MPDO, CiA 302 and CANopen FD.
+
+- `lss switch/select/inquire/configure/activate/identify/fastscan/assign-all`:
+  an LSS master (CiA 305) — node-IDs and bit rates by LSS address, Fastscan
+  of unconfigured devices, node-IDs for all of them.
+- `mpdo configure/scanner/dispatcher/watch`: multiplexed PDOs (DAM, SAM),
+  object scanner and dispatcher lists, decoded MPDO traffic.
+- `boot`: CiA 302 network boot-up as a manager (identity checks, concise
+  DCF configuration, start), optionally with the LSS step.
+- `cdcf convert/show/apply`: concise DCFs (0x1F22); `store`/`restore`
+  (0x1010/0x1011); `program download/control/status` (CiA 302-3).
+- `--fd` (and `--brs`): CANopen FD (CiA 1301) for `sdo read/write/dump`
+  (USDO), `scan`, `nmt`, `heartbeat watch`, `emcy watch`, `sync`, `pdo
+  show/map`, `dcf apply` and the new commands; `monitor --fd` and `decode`
+  decode USDO and FD emergencies (they skipped CAN FD frames before).
+- `simulate --lss` (unconfigured LSS slave), `--serial`, `--fd`, `--store`,
+  `--program`.
+- New error codes (exit 12): `lss_refused`, `lss_conflict`, `no_node_id`,
+  `program_failed`, `boot_failed`, `mpdo_inactive`; USDO aborts carry
+  `usdoCode`. Schemas extended (additions only).
+
 ## v0.1.1 (2026-10-29)
 
 - go-canopen v0.2.0: SDO block transfers of empty values no longer time out.

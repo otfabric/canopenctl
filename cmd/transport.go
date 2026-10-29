@@ -18,13 +18,17 @@ import (
 	"github.com/otfabric/go-canbus/slcan"
 	"github.com/otfabric/go-canbus/socketcan"
 	"github.com/otfabric/go-canbus/virtual"
+	"github.com/otfabric/go-canopen"
+	"github.com/otfabric/go-canopen/master"
 	"github.com/otfabric/go-canopen/sdo"
+	"github.com/otfabric/go-canopen/usdo"
 	"github.com/spf13/cobra"
 )
 
 // openOpts are what a command asks of a transport.
 type openOpts struct {
 	passive bool // the command never transmits: slcan adapters open listen-only
+	fd      bool // open the interface for CAN FD frames (--fd)
 }
 
 // slcanFlags are the --slcan-* flags of an invocation.
@@ -92,7 +96,13 @@ var openTransport = func(iface string, o openOpts) (canbus.Transport, error) {
 		return openSlcan(iface, o)
 	}
 	if iface == cli.Virtual {
+		if o.fd {
+			return sharedVirtual().Open(virtual.WithQueueSize(65536), virtual.WithFD())
+		}
 		return sharedVirtual().Open(virtual.WithQueueSize(65536))
+	}
+	if o.fd {
+		return socketcan.Open(iface, socketcan.WithFD())
 	}
 	return socketcan.Open(iface)
 }
@@ -119,6 +129,36 @@ func openBus(iface string, o openOpts) (*canbus.Bus, error) {
 type busFlags struct {
 	iface string
 	yes   bool
+	fd    bool // --fd: CANopen FD (CiA 1301)
+	brs   bool // --brs: CAN FD bit rate switching
+}
+
+// addFD adds --fd and --brs to a command that speaks CANopen FD.
+func (b *busFlags) addFD(c *cobra.Command, what string) {
+	c.Flags().BoolVar(&b.fd, "fd", false, "CANopen FD (CiA 1301): open the interface for CAN FD and "+what)
+	c.Flags().BoolVar(&b.brs, "brs", false, "With --fd: send CAN FD frames with bit rate switching")
+}
+
+// open opens the interface of the command.
+func (b *busFlags) open(passive bool) (*canbus.Bus, error) {
+	return openBus(b.iface, openOpts{passive: passive, fd: b.fd})
+}
+
+// checkFD rejects --brs without --fd.
+func (b *busFlags) checkFD() error {
+	if b.brs && !b.fd {
+		return errs.Invalid("--brs needs --fd")
+	}
+	return nil
+}
+
+// masterOptions returns the master options of the flags: CANopen FD with
+// --fd.
+func (b *busFlags) masterOptions() []master.Option {
+	if b.fd {
+		return []master.Option{master.WithFD(b.brs)}
+	}
+	return nil
 }
 
 func (b *busFlags) add(c *cobra.Command, transmits bool) {
@@ -143,6 +183,7 @@ type sdoFlags struct {
 	retries   int
 	block     bool
 	blockSize int
+	clientID  int // USDO client node-ID (--fd)
 }
 
 func (s *sdoFlags) add(c *cobra.Command, block bool) {
@@ -152,6 +193,11 @@ func (s *sdoFlags) add(c *cobra.Command, block bool) {
 		c.Flags().BoolVar(&s.block, "block", false, "Use SDO block transfer")
 		c.Flags().IntVar(&s.blockSize, "block-size", sdo.MaxBlockSize, "Segments per block the client asks for in block uploads (1..127)")
 	}
+}
+
+// addFD adds --client-id, the node-ID of the USDO client of --fd.
+func (s *sdoFlags) addFD(c *cobra.Command) {
+	c.Flags().IntVar(&s.clientID, "client-id", int(canopen.MaxNodeID), "With --fd: node-ID of canopenctl's USDO client (its requests go out on 0x600 + it)")
 }
 
 func (s *sdoFlags) validate() error {
@@ -164,7 +210,111 @@ func (s *sdoFlags) validate() error {
 	if s.blockSize != 0 && (s.blockSize < 1 || s.blockSize > sdo.MaxBlockSize) {
 		return errs.Invalid("--block-size %d: 1..127", s.blockSize)
 	}
+	if s.clientID != 0 && !canopen.NodeID(s.clientID).Valid() {
+		return errs.Invalid("--client-id %d: 1..127", s.clientID)
+	}
 	return nil
+}
+
+// usdoOptions returns the USDO client options of the flags.
+func (s *sdoFlags) usdoOptions(brs bool) []usdo.Option {
+	return []usdo.Option{usdo.WithTimeout(s.timeout), usdo.WithBRS(brs)}
+}
+
+// masterOptions returns the master options of the SDO and bus flags: the
+// SDO client options and, with --fd, CANopen FD with a USDO client.
+func (s *sdoFlags) masterOptions(b *busFlags) []master.Option {
+	opts := []master.Option{master.WithSDOOptions(s.options()...)}
+	if b.fd {
+		id := canopen.NodeID(s.clientID)
+		if !id.Valid() {
+			id = canopen.MaxNodeID
+		}
+		opts = append(opts, master.WithFD(b.brs), master.WithUSDOClient(id, s.usdoOptions(b.brs)...))
+	}
+	return opts
+}
+
+// remote reads and writes one node's dictionary: over SDO, or over USDO
+// with --fd.
+type remote interface {
+	Upload(ctx context.Context, index uint16, sub uint8) ([]byte, error)
+	Download(ctx context.Context, index uint16, sub uint8, data []byte) error
+	// blocked reports whether a block (SDO) or bulk (USDO) transfer was
+	// used.
+	blocked() bool
+	Close() error
+}
+
+type sdoRemote struct{ c *sdo.Client }
+
+func (r sdoRemote) Upload(ctx context.Context, index uint16, sub uint8) ([]byte, error) {
+	return r.c.Upload(ctx, index, sub)
+}
+
+func (r sdoRemote) Download(ctx context.Context, index uint16, sub uint8, data []byte) error {
+	return r.c.Download(ctx, index, sub, data)
+}
+
+func (r sdoRemote) blocked() bool { return r.c.Stats().BlockTransfers > 0 }
+func (r sdoRemote) Close() error  { return r.c.Close() }
+
+type usdoRemote struct {
+	c       *usdo.Client
+	server  canopen.NodeID
+	bulk    bool
+	retries int
+}
+
+func (r usdoRemote) retry(ctx context.Context, f func() error) error {
+	var err error
+	for i := 0; i <= r.retries; i++ {
+		if err = f(); err == nil || !errors.Is(err, canopen.ErrTimeout) || ctx.Err() != nil {
+			return err
+		}
+	}
+	return err
+}
+
+func (r usdoRemote) Upload(ctx context.Context, index uint16, sub uint8) ([]byte, error) {
+	var b []byte
+	err := r.retry(ctx, func() error {
+		var err error
+		b, err = r.c.Upload(ctx, r.server, index, sub)
+		return err
+	})
+	return b, err
+}
+
+func (r usdoRemote) Download(ctx context.Context, index uint16, sub uint8, data []byte) error {
+	return r.retry(ctx, func() error { return r.c.Download(ctx, r.server, index, sub, data, usdo.UseBulk(r.bulk)) })
+}
+
+func (r usdoRemote) blocked() bool { return r.c.Stats().Bulk > 0 }
+func (r usdoRemote) Close() error  { return r.c.Close() }
+
+// newRemote opens the dictionary client of a node on an open bus: an SDO
+// client, or with --fd a USDO client (--block selects bulk downloads).
+func newRemote(bus canopen.Bus, node canopen.NodeID, s *sdoFlags, b *busFlags) (remote, error) {
+	if !b.fd {
+		c, err := sdo.NewClient(bus, node, s.options()...)
+		if err != nil {
+			return nil, err
+		}
+		return sdoRemote{c}, nil
+	}
+	id := canopen.NodeID(s.clientID)
+	if !id.Valid() {
+		id = canopen.MaxNodeID
+	}
+	c, err := usdo.NewClient(bus, id, s.usdoOptions(b.brs)...)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.Start(); err != nil {
+		return nil, err
+	}
+	return usdoRemote{c: c, server: node, bulk: s.block, retries: s.retries}, nil
 }
 
 func (s *sdoFlags) options() []sdo.ClientOption {

@@ -30,6 +30,7 @@ var services = map[string][]dissect.Kind{
 	"tpdo":      {dissect.KindTPDO},
 	"rpdo":      {dissect.KindRPDO},
 	"sdo":       {dissect.KindSDORequest, dissect.KindSDOResponse},
+	"usdo":      {dissect.KindUSDORequest, dissect.KindUSDOResponse},
 	"heartbeat": {dissect.KindHeartbeat, dissect.KindBootUp, dissect.KindGuardRequest, dissect.KindGuardResponse},
 	"lss":       {dissect.KindLSSMaster, dissect.KindLSSSlave},
 	"unknown":   {dissect.KindUnknown},
@@ -99,6 +100,9 @@ func (f msgFilter) match(m *dissect.Message) bool {
 		return m.NMT != nil && (m.NMT.Target == 0 || f.nodes[m.NMT.Target])
 	case dissect.KindSYNC, dissect.KindTIME, dissect.KindLSSMaster, dissect.KindLSSSlave:
 		return true
+	case dissect.KindUSDORequest:
+		// The sender is the client; the server is the destination.
+		return f.nodes[m.Node] || m.USDO != nil && f.nodes[canopen.NodeID(m.USDO.Dest)]
 	default:
 		return f.nodes[m.Node]
 	}
@@ -113,6 +117,8 @@ type messageRecord struct {
 	Extended     bool                  `json:"extended"`
 	Remote       bool                  `json:"remote"`
 	Len          int                   `json:"len"`
+	FD           bool                  `json:"fd,omitempty"`
+	BRS          bool                  `json:"brs,omitempty"`
 	Data         string                `json:"data"`
 	Kind         dissect.Kind          `json:"kind"`
 	Node         canopen.NodeID        `json:"node,omitempty"`
@@ -124,6 +130,7 @@ type messageRecord struct {
 	EMCY         *emcyJSON             `json:"emcy,omitempty"`
 	PDO          *dissect.PDO          `json:"pdo,omitempty"`
 	SDO          *dissect.SDO          `json:"sdo,omitempty"`
+	USDO         *dissect.USDO         `json:"usdo,omitempty"`
 	ErrorControl *dissect.ErrorControl `json:"errorControl,omitempty"`
 	LSS          *dissect.LSS          `json:"lss,omitempty"`
 }
@@ -136,6 +143,8 @@ type emcyJSON struct {
 	RegisterNames []string `json:"registerNames"`
 	MSEF          string   `json:"msef"`
 	Reset         bool     `json:"reset,omitempty"`
+	// FD is the CANopen FD part of a 20-byte emergency (CiA 1301).
+	FD *dissect.EMCYFD `json:"fd,omitempty"`
 }
 
 func emcyOf(code uint16, reg uint8, msef []byte) *emcyJSON {
@@ -150,8 +159,8 @@ func emcyOf(code uint16, reg uint8, msef []byte) *emcyJSON {
 // messageOf builds the record and the text line of a decoded frame.
 func messageOf(f *canbus.Frame, m *dissect.Message) (messageRecord, string) {
 	r := messageRecord{Interface: f.Interface, ID: uint32(f.ID), Extended: f.IsExtended(), Remote: f.IsRemote(),
-		Len: int(f.Len), Data: hex.EncodeToString(f.Payload()), Kind: m.Kind, Node: m.Node, Error: m.Error,
-		NMT: m.NMT, SYNC: m.SYNC, TIME: m.TIME, PDO: m.PDO, SDO: m.SDO, ErrorControl: m.ErrorControl, LSS: m.LSS}
+		Len: int(f.Len), FD: m.FD, BRS: m.BRS, Data: hex.EncodeToString(f.Payload()), Kind: m.Kind, Node: m.Node, Error: m.Error,
+		NMT: m.NMT, SYNC: m.SYNC, TIME: m.TIME, PDO: m.PDO, SDO: m.SDO, USDO: m.USDO, ErrorControl: m.ErrorControl, LSS: m.LSS}
 	r.IDHex = fmt.Sprintf("%03X", r.ID)
 	if r.Extended {
 		r.IDHex = fmt.Sprintf("%08X", r.ID)
@@ -162,6 +171,7 @@ func messageOf(f *canbus.Frame, m *dissect.Message) (messageRecord, string) {
 	r.Summary = m.String()
 	if m.EMCY != nil {
 		r.EMCY = emcyOf(m.EMCY.Code, m.EMCY.Register, m.EMCY.MSEF)
+		r.EMCY.FD = m.EMCY.FD
 		if !strings.Contains(r.Summary, r.EMCY.CodeText) {
 			r.Summary += " (" + r.EMCY.CodeText + ")"
 		}
@@ -215,8 +225,8 @@ func newDissector(a *app, f msgFilter) *dissector {
 // whether it did.
 func (d *dissector) frame(f *canbus.Frame) (shown bool, err error) {
 	d.sum.Frames++
-	if f.IsError() || f.IsFD() {
-		return false, nil // CANopen runs on classical CAN data and remote frames
+	if f.IsError() {
+		return false, nil // CANopen runs on CAN and CAN FD data and remote frames
 	}
 	m := d.tracker.Decode(f)
 	if m.Error != "" {
@@ -264,8 +274,10 @@ func newMonitorCmd(a *app) *cobra.Command {
 		Long: `monitor receives frames and decodes them as CANopen messages by the predefined
 connection set: NMT, SYNC, TIME, EMCY, PDOs, SDO requests and responses (with
 segmented and block transfers followed, so segments name their object),
-heartbeat, boot-up, node guarding and LSS. It never transmits; slcan adapters
-are opened listen-only. --node and --service select messages; JSON output is
+heartbeat, boot-up, node guarding and LSS. With --fd it also receives CAN FD
+frames and decodes the CANopen FD services (CiA 1301): USDO requests and
+responses, 20-byte FD emergencies, and FD PDOs, heartbeats and NMT. It never
+transmits; slcan adapters are opened listen-only. --node and --service select messages; JSON output is
 JSON Lines, one record per message and a summary at the end.`,
 		Example: `  canopenctl monitor -i can0
   canopenctl monitor -i vcan0 --node 5 --service sdo,emcy --format json`,
@@ -278,7 +290,7 @@ JSON Lines, one record per message and a summary at the end.`,
 			if count < 0 {
 				return errs.Invalid("--count %d: 0 or more", count)
 			}
-			bus, err := openBus(bf.iface, openOpts{passive: true})
+			bus, err := bf.open(true)
 			if err != nil {
 				return err
 			}
@@ -312,6 +324,7 @@ JSON Lines, one record per message and a summary at the end.`,
 		},
 	}
 	bf.add(c, false)
+	c.Flags().BoolVar(&bf.fd, "fd", false, "Open the interface for CAN FD and decode CANopen FD (USDO, FD EMCY)")
 	addMsgFilterFlags(c, &nodes, &svcs)
 	c.Flags().IntVarP(&count, "count", "n", 0, "Stop after this many messages shown (0: no limit)")
 	c.Flags().DurationVar(&duration, "duration", 0, "Stop after this time (0: until Ctrl-C)")
@@ -329,7 +342,7 @@ func newDecodeCmd(a *app) *cobra.Command {
 		Short: "Decode a trace file as CANopen messages",
 		Long: `decode reads a trace (candump log, JSON Lines, pcap, pcapng, ASC, BLF or PEAK
 TRC; the format is detected from the content; "-" reads stdin) and decodes its
-frames as CANopen messages, as monitor does. Malformed CANopen messages (a
+frames as CANopen messages, as monitor does (CAN FD frames as CANopen FD). Malformed CANopen messages (a
 wrong length, say) are shown with the problem and make the exit code 1.`,
 		Example: `  canopenctl decode trip.log
   canopenctl decode capture.pcapng --node 5 --format json`,

@@ -12,9 +12,13 @@ import (
 	"github.com/otfabric/go-canbus"
 	"github.com/otfabric/go-canopen"
 	"github.com/otfabric/go-canopen/cia402"
+	"github.com/otfabric/go-canopen/lss"
 	"github.com/otfabric/go-canopen/master"
+	"github.com/otfabric/go-canopen/mpdo"
 	"github.com/otfabric/go-canopen/pdo"
+	"github.com/otfabric/go-canopen/program"
 	"github.com/otfabric/go-canopen/timestamp"
+	"github.com/otfabric/go-canopen/usdo"
 )
 
 // Kind is a failure category; it selects the exit code.
@@ -73,6 +77,12 @@ const (
 	CodeDriveFault         = "drive_fault"
 	CodeDriveState         = "drive_state"
 	CodeNotProducer        = "not_producer"
+	CodeLSSRefused         = "lss_refused"
+	CodeLSSConflict        = "lss_conflict"
+	CodeNoNodeID           = "no_node_id"
+	CodeBootFailed         = "boot_failed"
+	CodeProgramFailed      = "program_failed"
+	CodeMPDO               = "mpdo_inactive"
 	CodeUnsupported        = "unsupported"
 	CodeNeedsYes           = "confirmation_required"
 	CodePermission         = "permission_denied"
@@ -94,6 +104,9 @@ type Abort struct {
 	// Remote is true when the device sent the abort, false when
 	// canopenctl aborted the transfer (timeout, protocol violation).
 	Remote bool `json:"remote"`
+	// USDOCode is the one-byte USDO abort code of a CANopen FD transfer
+	// ("0x12"); Code is then its SDO equivalent.
+	USDOCode string `json:"usdoCode,omitempty"`
 }
 
 // Drive describes the state of a CiA 402 drive in an error document.
@@ -163,6 +176,14 @@ func AbortOf(ae *canopen.AbortError) *Abort {
 	return &Abort{Code: fmt.Sprintf("0x%08X", uint32(ae.Code)), Text: ae.Code.Text(), Index: ae.Index, SubIndex: ae.SubIndex, Remote: ae.Remote}
 }
 
+// usdoAbortOf describes a USDO abort for an error document: the SDO
+// equivalent of its code, and the code itself.
+func usdoAbortOf(ue *usdo.AbortError) *Abort {
+	c := ue.Code.SDO()
+	return &Abort{Code: fmt.Sprintf("0x%08X", uint32(c)), Text: c.Text(), Index: ue.Index, SubIndex: ue.SubIndex, Remote: ue.Remote,
+		USDOCode: fmt.Sprintf("0x%02X", uint8(ue.Code))}
+}
+
 // Classify turns any error into a typed one, recognising go-canbus and
 // go-canopen sentinels.
 func Classify(err error) *Error {
@@ -171,6 +192,30 @@ func Classify(err error) *Error {
 		return e
 	}
 	mk := func(k Kind, code string) *Error { return &Error{Kind: k, Code: code, Message: err.Error(), Cause: err} }
+	var ue *usdo.AbortError
+	if errors.As(err, &ue) {
+		r := mk(KindProtocol, CodeSDOProtocol)
+		switch {
+		case ue.Remote:
+			r.Kind, r.Code = KindAbort, CodeSDOAbort
+		case errors.Is(err, canopen.ErrTimeout):
+			r.Kind, r.Code = KindTimeout, CodeSDOTimeout
+		}
+		r.Abort = usdoAbortOf(ue)
+		return r
+	}
+	var be *master.BootError
+	if errors.As(err, &be) {
+		return mk(KindDevice, CodeBootFailed)
+	}
+	var ce *lss.ConfigError
+	if errors.As(err, &ce) {
+		return mk(KindDevice, CodeLSSRefused)
+	}
+	var fe program.FlashError
+	if errors.As(err, &fe) || errors.Is(err, master.ErrProgram) {
+		return mk(KindDevice, CodeProgramFailed)
+	}
 	var ae *canopen.AbortError
 	hasAbort := errors.As(err, &ae)
 	var de *cia402.Error
@@ -216,6 +261,12 @@ func Classify(err error) *Error {
 		return mk(KindDevice, CodeIdentity)
 	case errors.Is(err, timestamp.ErrNotProducer):
 		return mk(KindDevice, CodeNotProducer)
+	case errors.Is(err, lss.ErrConflict), errors.Is(err, lss.ErrFastscan):
+		return mk(KindDevice, CodeLSSConflict)
+	case errors.Is(err, lss.ErrNoNodeID):
+		return mk(KindDevice, CodeNoNodeID)
+	case errors.Is(err, mpdo.ErrInactive), errors.Is(err, mpdo.ErrDisabled), errors.Is(err, mpdo.ErrNotScanned), errors.Is(err, mpdo.ErrMode):
+		return mk(KindDevice, CodeMPDO)
 	case errors.Is(err, canbus.ErrUnsupported):
 		return mk(KindUnsupported, CodeUnsupported)
 	case errors.Is(err, canbus.ErrInterfaceDown):
