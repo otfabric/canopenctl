@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/otfabric/canopenctl/schemas/result-v1.schema.json",
+  "title": "canopenctl result document, version 1",
+  "description": "The envelope of single-result commands with --format json, and the shape of result per command. Fields may be added in later 1.x versions; consumers must ignore unknown fields. See docs/json-output.md.",
+  "type": "object",
+  "required": ["schemaVersion", "command", "result"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {"type": "string", "pattern": "^1\\."},
+    "command": {"enum": ["version", "sdo read", "sdo write", "sdo dump", "nmt", "scan", "sync", "time", "pdo show", "pdo map",
+      "eds validate", "eds show", "eds convert", "eds generate", "dcf apply", "dcf export",
+      "cia402 state", "cia402 enable", "cia402 disable", "cia402 fault-reset", "cia402 quick-stop", "cia402 mode", "cia402 move", "cia402 velocity"]},
+    "result": {"type": "object"}
+  },
+  "$defs": {
+    "node": {"type": "integer", "minimum": 0, "maximum": 127},
+    "hex": {"type": "string", "pattern": "^([0-9a-f]{2})*$"},
+    "hex32": {"type": "string", "pattern": "^0x[0-9A-F]{8}$"},
+    "key": {"type": "string", "pattern": "^0x[0-9A-F]{4}:[0-9A-F]{2}$"},
+    "index": {"type": "integer", "minimum": 0, "maximum": 65535},
+    "subIndex": {"type": "integer", "minimum": 0, "maximum": 255},
+    "value": {"type": ["number", "string", "boolean"]},
+    "sdoValue": {
+      "type": "object",
+      "required": ["node", "index", "subIndex", "key", "type", "typeSource", "size", "data", "value", "block"],
+      "properties": {
+        "node": {"$ref": "#/$defs/node"}, "index": {"$ref": "#/$defs/index"}, "subIndex": {"$ref": "#/$defs/subIndex"},
+        "key": {"$ref": "#/$defs/key"}, "name": {"type": "string"}, "type": {"type": "string"},
+        "typeSource": {"enum": ["flag", "eds", "guess", "file"]}, "size": {"type": "integer", "minimum": 0},
+        "data": {"$ref": "#/$defs/hex"}, "value": {"$ref": "#/$defs/value"}, "block": {"type": "boolean"},
+        "verified": {"type": "boolean"}, "file": {"type": "string"}
+      }
+    },
+    "pdoInfo": {
+      "type": "object",
+      "required": ["kind", "pdo", "cobId", "cobIdValue", "valid", "extended", "rtrAllowed", "active", "transmissionType", "transmission",
+        "inhibitTime", "eventTimer", "syncStart", "bits", "mapping"],
+      "properties": {
+        "kind": {"enum": ["tpdo", "rpdo"]}, "pdo": {"type": "integer", "minimum": 1, "maximum": 512},
+        "cobId": {"type": "string", "pattern": "^0x[0-9A-F]+$"}, "cobIdValue": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+        "valid": {"type": "boolean"}, "extended": {"type": "boolean"}, "rtrAllowed": {"type": "boolean"}, "active": {"type": "boolean"},
+        "transmissionType": {"type": "integer", "minimum": 0, "maximum": 255}, "transmission": {"type": "string"},
+        "inhibitTime": {"type": "integer"}, "eventTimer": {"type": "integer"}, "syncStart": {"type": "integer"},
+        "bits": {"type": "integer", "minimum": 0, "maximum": 64},
+        "mapping": {"type": "array", "items": {"type": "object", "required": ["index", "subIndex", "bits", "key"],
+          "properties": {"index": {"$ref": "#/$defs/index"}, "subIndex": {"$ref": "#/$defs/subIndex"}, "bits": {"type": "integer", "minimum": 1, "maximum": 64},
+            "key": {"$ref": "#/$defs/key"}, "name": {"type": "string"}, "dummy": {"type": "boolean"}}}}
+      }
+    },
+    "file": {
+      "type": "object",
+      "required": ["input", "output", "kind", "bytes", "sha256"],
+      "properties": {"input": {"type": "string"}, "output": {"type": "string"}, "kind": {"enum": ["dcf", "eds", "go"]},
+        "nodeId": {"$ref": "#/$defs/node"}, "bytes": {"type": "integer"}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+    },
+    "drive": {
+      "type": "object",
+      "required": ["node", "state", "statusword", "status"],
+      "properties": {
+        "node": {"$ref": "#/$defs/node"}, "action": {"type": "string"}, "state": {"type": "string"},
+        "statusword": {"type": "string", "pattern": "^0x[0-9A-F]{4}$"}, "status": {"type": "array", "items": {"type": "string"}},
+        "mode": {"type": "integer", "minimum": -128, "maximum": 127}, "modeName": {"type": "string"},
+        "position": {"type": "integer"}, "velocity": {"type": "integer"},
+        "faultCode": {"type": "string", "pattern": "^0x[0-9A-F]{4}$"}, "faultText": {"type": "string"}
+      }
+    }
+  },
+  "allOf": [
+    {"if": {"properties": {"command": {"const": "version"}}}, "then": {"properties": {"result": {
+      "required": ["version", "goCanopen", "goCanbus", "go", "platform"],
+      "properties": {"version": {"type": "string"}, "tag": {"type": "string"}, "commit": {"type": "string"}, "buildDate": {"type": "string"},
+        "goCanopen": {"type": "string"}, "goCanbus": {"type": "string"}, "go": {"type": "string"}, "platform": {"type": "string"}}}}}},
+    {"if": {"properties": {"command": {"enum": ["sdo read", "sdo write"]}}}, "then": {"properties": {"result": {"$ref": "#/$defs/sdoValue"}}}},
+    {"if": {"properties": {"command": {"const": "sdo dump"}}}, "then": {"properties": {"result": {
+      "required": ["node", "eds", "objects", "read", "failed"],
+      "properties": {"node": {"$ref": "#/$defs/node"}, "eds": {"type": "string"}, "read": {"type": "integer"}, "failed": {"type": "integer"},
+        "objects": {"type": "array", "items": {"type": "object", "required": ["index", "subIndex", "key", "name", "type", "access"],
+          "properties": {"index": {"$ref": "#/$defs/index"}, "subIndex": {"$ref": "#/$defs/subIndex"}, "key": {"$ref": "#/$defs/key"},
+            "name": {"type": "string"}, "type": {"type": "string"}, "access": {"enum": ["ro", "wo", "rw", "rwr", "rww", "const"]},
+            "data": {"$ref": "#/$defs/hex"}, "value": {"$ref": "#/$defs/value"}, "error": {"type": "string"},
+            "abortCode": {"$ref": "#/$defs/hex32"}}}}}}}}},
+    {"if": {"properties": {"command": {"const": "nmt"}}}, "then": {"properties": {"result": {
+      "required": ["node", "command", "waited"],
+      "properties": {"node": {"$ref": "#/$defs/node"}, "command": {"enum": ["start", "stop", "pre-operational", "reset-node", "reset-communication"]},
+        "waited": {"type": "boolean"}, "state": {"type": "string"}, "elapsedMs": {"type": "integer"}}}}}},
+    {"if": {"properties": {"command": {"const": "scan"}}}, "then": {"properties": {"result": {
+      "required": ["scanned", "nodes", "errors"],
+      "properties": {"scanned": {"type": "integer"}, "errors": {"type": "array", "items": {"type": "string"}},
+        "nodes": {"type": "array", "items": {"type": "object",
+          "required": ["node", "deviceType", "profile", "vendorId", "productCode", "revision", "serialNumber", "identity"],
+          "properties": {"node": {"$ref": "#/$defs/node"}, "deviceType": {"$ref": "#/$defs/hex32"}, "profile": {"type": "string"},
+            "vendorId": {"$ref": "#/$defs/hex32"}, "productCode": {"$ref": "#/$defs/hex32"}, "revision": {"$ref": "#/$defs/hex32"},
+            "serialNumber": {"$ref": "#/$defs/hex32"},
+            "identity": {"type": "object", "required": ["vendorId", "productCode", "revision", "serialNumber"]}}}}}}}}},
+    {"if": {"properties": {"command": {"const": "sync"}}}, "then": {"properties": {"result": {
+      "required": ["sent", "periodUs", "counterOverflow", "cobId"],
+      "properties": {"sent": {"type": "integer"}, "periodUs": {"type": "integer"}, "counterOverflow": {"type": "integer", "minimum": 0, "maximum": 240}, "cobId": {"type": "string"}}}}}},
+    {"if": {"properties": {"command": {"const": "time"}}}, "then": {"properties": {"result": {
+      "required": ["sent", "time", "days", "ms", "cobId"],
+      "properties": {"sent": {"type": "integer"}, "time": {"type": "string"}, "days": {"type": "integer"}, "ms": {"type": "integer"}, "cobId": {"type": "string"}}}}}},
+    {"if": {"properties": {"command": {"const": "pdo show"}}}, "then": {"properties": {"result": {
+      "required": ["node", "pdos"], "properties": {"node": {"$ref": "#/$defs/node"}, "pdos": {"type": "array", "items": {"$ref": "#/$defs/pdoInfo"}}}}}}},
+    {"if": {"properties": {"command": {"const": "pdo map"}}}, "then": {"properties": {"result": {
+      "allOf": [{"$ref": "#/$defs/pdoInfo"}], "required": ["node"], "properties": {"node": {"$ref": "#/$defs/node"}}}}}},
+    {"if": {"properties": {"command": {"const": "eds validate"}}}, "then": {"properties": {"result": {
+      "required": ["file", "dcf", "valid", "errors", "warnings", "objects", "diagnostics"],
+      "properties": {"file": {"type": "string"}, "dcf": {"type": "boolean"}, "valid": {"type": "boolean"}, "errors": {"type": "integer"},
+        "warnings": {"type": "integer"}, "objects": {"type": "integer"},
+        "diagnostics": {"type": "array", "items": {"type": "object", "required": ["severity", "message"],
+          "properties": {"severity": {"enum": ["error", "warning"]}, "section": {"type": "string"}, "key": {"type": "string"}, "message": {"type": "string"}}}}}}}}},
+    {"if": {"properties": {"command": {"const": "eds show"}}}, "then": {"properties": {"result": {
+      "required": ["file", "dcf", "device", "objects"],
+      "properties": {"file": {"type": "string"}, "dcf": {"type": "boolean"}, "nodeId": {"$ref": "#/$defs/node"}, "description": {"type": "string"},
+        "device": {"type": "object", "required": ["vendorName", "vendorNumber", "productName", "productNumber", "revisionNumber", "baudRates", "rxPDOs", "txPDOs", "lss"]},
+        "objects": {"type": "array", "items": {"type": "object",
+          "required": ["index", "subIndex", "key", "object", "name", "objectType", "type", "access", "pdoMapping", "default"],
+          "properties": {"key": {"$ref": "#/$defs/key"}, "access": {"enum": ["ro", "wo", "rw", "rwr", "rww", "const"]},
+            "objectType": {"enum": ["NULL", "DOMAIN", "DEFTYPE", "DEFSTRUCT", "VAR", "ARRAY", "RECORD"]}}}}}}}}},
+    {"if": {"properties": {"command": {"enum": ["eds convert", "eds generate", "dcf export"]}}}, "then": {"properties": {"result": {"$ref": "#/$defs/file"}}}},
+    {"if": {"properties": {"command": {"const": "dcf apply"}}}, "then": {"properties": {"result": {
+      "required": ["node", "file", "dryRun", "entries"],
+      "properties": {"node": {"$ref": "#/$defs/node"}, "file": {"type": "string"}, "dryRun": {"type": "boolean"},
+        "entries": {"type": "array", "items": {"type": "object", "required": ["index", "subIndex", "key", "data"],
+          "properties": {"key": {"$ref": "#/$defs/key"}, "data": {"$ref": "#/$defs/hex"}, "name": {"type": "string"}}}}}}}}},
+    {"if": {"properties": {"command": {"pattern": "^cia402 "}}}, "then": {"properties": {"result": {"$ref": "#/$defs/drive"}}}}
+  ]
+}

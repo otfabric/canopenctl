@@ -1,0 +1,65 @@
+name: Interop
+run-name: "Interop (${{ github.event_name }}) on ${{ github.ref_name }} by @${{ github.actor }}"
+
+# Runs the canopenctl binary against the independent CANopen stacks of
+# otfabric/canopen-interop on a vcan interface: CANopenNode, Lely CANopen
+# and python canopen, as devices, clients and EDS checkers. The images are
+# pulled by the release in interop/harness_test.go; nothing of
+# canopen-interop is built here. A capability an image lacks is a recorded
+# skip, never a pass.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  interop:
+    name: Interop (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: amd64, runner: ubuntu-24.04 }
+          - { arch: arm64, runner: ubuntu-24.04-arm }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Load the CAN modules and create vcan0
+        run: scripts/ci-can-modules.sh vcan0
+      - name: Interop suite
+        env:
+          CANOPENCTL_REQUIRE_VCAN: "1"
+          CANOPENCTL_REQUIRE_INTEROP: "1"
+        run: make interop
+      - name: Summary
+        if: always()
+        run: |
+          [ -f bin/interop-report.json ] || exit 0
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, collections
+          d = json.load(open("bin/interop-report.json"))
+          c = collections.Counter(r["result"] for r in d["results"])
+          print("## canopenctl interop results (canopen-interop " + d["interopRelease"] + ")\n")
+          print(", ".join(f"{k}: {v}" for k, v in sorted(c.items())) + "\n")
+          print("| Adapter | Scenario | Result | Detail |\n|---|---|---|---|")
+          for r in d["results"]:
+              if r["result"] != "known-difference":
+                  print(f"| {r['adapter']} | {r['scenario']} | {r['result']} | {r.get('detail', '')} |")
+          PY
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: interop-report-${{ matrix.arch }}
+          path: bin/interop-report.json
+          if-no-files-found: warn

@@ -1,0 +1,11 @@
+(1700000000.000000) vcan0 000#0105  NMT start node 5
+(1700000000.001000) vcan0 705#00  boot-up node 5
+(1700000000.002000) vcan0 605#4008100000000000  SDO request node 5: initiate upload 0x1008:00
+(1700000000.003000) vcan0 585#4108100006000000  SDO response node 5: initiate upload 0x1008:00 size=6
+(1700000000.004000) vcan0 605#6000000000000000  SDO request node 5: upload segment 0x1008:00 toggle=0
+(1700000000.005000) vcan0 585#00494F2D3430310D  SDO response node 5: upload segment 0x1008:00 toggle=0: 49 4F 2D 34 30 31 0D
+(1700000000.006000) vcan0 085#00  emcy 085: 00 [EMCY needs 8 bytes, got 1]
+(1700000000.007000) vcan0 100#E8030000A714  TIME 1998-06-23 00:00:01.000
+(1700000000.008000) vcan0 7E5#4C00000000000000  LSS master: identify non-configured remote slave (00 00 00 00 00 00 00)
+(1700000000.009000) vcan0 705#R  node guarding request node 5
+(1700000000.010000) vcan0 1F5#  TPDO1 node 117: 

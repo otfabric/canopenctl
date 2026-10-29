@@ -1,0 +1,12 @@
+# Codecov configuration for canopenctl. CI uploads the whole-module profile
+# of the vcan job (Linux with a vcan interface), the metric `make coverage`
+# gates at 90 %.
+coverage:
+  status:
+    project:
+      default:
+        target: 90%
+        threshold: 1%
+    patch:
+      default:
+        target: 70%
