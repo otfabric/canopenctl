@@ -63,9 +63,10 @@ Verification:
   --lss`; a `simulate --fd` process operated over USDO (`sdo read`, `nmt
   --wait`, `program download`, `scan`) while `monitor --fd` decoded the
   USDO traffic.
-- Not run for this release: the interop suite against CANopenNode, Lely
-  CANopen and python canopen (the new commands have no interop scenarios
-  yet).
+- Interop: the existing suite against CANopenNode, Lely CANopen and
+  python canopen passes on the canopen-interop v0.2.0 images (pinned by
+  digest; contract 1.1 only adds things) in CI on amd64 and arm64. The
+  new commands have no interop scenarios yet.
 
 ---
 
