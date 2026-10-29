@@ -24,12 +24,11 @@
   commissioning and tests, not as a precision clock master.
 - **`scan`** reads 0x1000 and 0x1018 by SDO with a short timeout; a node
   slower than `--timeout` is missed. Nodes in Stopped do not answer SDO.
-- **`dcf apply`** writes the DCF's values as they are. go-canopen applies
-  PDO parameters in the CiA 301 order, but other objects whose identifier
-  cannot change while valid (EMCY 0x1014, SYNC 0x1005, TIME 0x1012) are
-  written directly: a DCF made for another node-ID, with absolute COB-IDs,
-  is refused by the device (exit 11). Use a DCF with `$NODEID` values or one
-  made for the node (`eds convert --node-id`, `dcf export`).
+- **`dcf apply`** writes the DCF's values as they are, in the order of
+  the file. go-canopen applies PDO parameters in the CiA 301 order and
+  releases EMCY (0x1014), SYNC (0x1005) and TIME (0x1012) COB-IDs before
+  changing their CAN-ID; other device-specific write rules are the
+  device's (a refusal is exit 11).
 - **`dcf export`** writes the dictionary as go-canopen models it: every
   object expanded (no compact storage), comments and vendor sections of the
   EDS not kept; the pre-defined error field 0x1003 keeps the EDS default.

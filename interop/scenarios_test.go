@@ -316,8 +316,8 @@ func TestStackClient(t *testing.T) {
 // edsDifferences are the fixtures canopenctl (go-canopen's eds.Validate)
 // rejects and a stack's checker accepts, with the reason.
 var edsDifferences = map[string]string{
-	"compact-subobj.eds": "the fixture declares NrOfRXPDO=4 and NrOfTXPDO=4 but has no PDO objects; go-canopen's eds.Validate reports the counts as errors (CiA 306 4.4: the number of supported PDOs), lely's dcf-tools and python canopen do not check them",
-	"object-links.eds":   "the fixture declares NrOfRXPDO=4 and NrOfTXPDO=4 but has no PDO objects; go-canopen's eds.Validate reports the counts as errors, python canopen does not check them (lely rejects the file for its ObjectLinks section)",
+	// None since go-canopen v0.1.0: a PDO count that does not match the
+	// PDO objects is a warning there, as in lely and python canopen.
 }
 
 // TestEDSCheck: each stack's EDS checker and eds validate agree on the
