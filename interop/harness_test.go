@@ -71,6 +71,15 @@ func skipf(t *testing.T, format string, args ...any) {
 	t.Skipf("SKIP: "+format, args...)
 }
 
+// capSkip skips a scenario the image declares it cannot run (its
+// print-capabilities document). It is recorded as a skip in the report,
+// also with CANOPENCTL_REQUIRE_INTEROP=1: the image's own declaration, not
+// a missing prerequisite, decides it.
+func capSkip(t *testing.T, format string, args ...any) {
+	t.Helper()
+	t.Skipf("SKIP (capability): "+format, args...)
+}
+
 // needVCAN returns $CANOPENCTL_TEST_IFACE (default vcan0).
 func needVCAN(t *testing.T) string {
 	t.Helper()

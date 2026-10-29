@@ -60,7 +60,7 @@ func TestStackDevice(t *testing.T) {
 			})
 			scenario(t, a, "sdo-read-block", func(t *testing.T) {
 				if !c.Features["deviceBlock"] {
-					skipf(t, "%s's device has no SDO block transfer", a)
+					capSkip(t, "%s's device has no SDO block transfer", a)
 				}
 				want(t, sdoRead(t, "0x1008", "0", "--block"), 0, `"otfabric canopen-interop device"`, "")
 			})
@@ -96,7 +96,7 @@ func TestStackDevice(t *testing.T) {
 			})
 			scenario(t, a, "sdo-abort-value-range", func(t *testing.T) {
 				if !c.Features["deviceLimits"] {
-					skipf(t, "%s's device does not check limits", a)
+					capSkip(t, "%s's device does not check limits", a)
 				}
 				want(t, ctl(t, "sdo", "write", "5", "0x200A", "0", "5", "--eds", fx, "-i", ifc), 11, "0x06090032")
 			})
@@ -119,13 +119,13 @@ func TestStackDevice(t *testing.T) {
 			})
 			scenario(t, a, "pdo-watch-tpdo1", func(t *testing.T) {
 				if !c.Features["tick"] || !c.Features["deviceTpdo"] {
-					skipf(t, "%s's device produces no TPDO", a)
+					capSkip(t, "%s's device produces no TPDO", a)
 				}
 				want(t, ctl(t, "pdo", "watch", "5", "--tpdo", "1", "--eds", fx, "-i", ifc, "--count", "2", "--duration", "10s"), 0, "TPDO1 185#", "Test counter")
 			})
 			scenario(t, a, "pdo-map-tpdo2", func(t *testing.T) {
 				if !c.Features["deviceTpdo"] {
-					skipf(t, "%s's device produces no TPDO", a)
+					capSkip(t, "%s's device produces no TPDO", a)
 				}
 				want(t, ctl(t, "nmt", "preop", "5", "-i", ifc), 0)
 				want(t, ctl(t, "pdo", "map", "5", "--tpdo", "2", "--map", "0x2000:00:8,0x2001:00:16", "--type", "255", "--event-timer", "50", "--eds", fx, "-i", ifc),
@@ -136,13 +136,13 @@ func TestStackDevice(t *testing.T) {
 			})
 			scenario(t, a, "emcy-watch", func(t *testing.T) {
 				if emcyW == nil {
-					skipf(t, "%s's device sends no EMCY on request", a)
+					capSkip(t, "%s's device sends no EMCY on request", a)
 				}
 				want(t, emcyW.wait(t, 60*time.Second), 0, `"code":"0x1000"`, `"node":5`, `"msef":"2b01020304"`)
 			})
 			scenario(t, a, "heartbeat-watch", func(t *testing.T) {
 				if hb == nil {
-					skipf(t, "%s's device has no heartbeat producer", a)
+					capSkip(t, "%s's device has no heartbeat producer", a)
 				}
 				time.Sleep(300 * time.Millisecond)
 				hb.stop()
@@ -205,7 +205,7 @@ func TestStackClient(t *testing.T) {
 			})
 			scenario(t, a, "stack-sdo-block", func(t *testing.T) {
 				if !c.Features["sdoBlock"] {
-					skipf(t, "%s's client has no block transfer", a)
+					capSkip(t, "%s's client has no block transfer", a)
 				}
 				data := hex.EncodeToString(bytes.Repeat([]byte{0xA5, 0x5A, 0x01}, 100))
 				code, out := adapterRun(t, a, "sdo-download", "--interface", ifc, "--node-id", "6", "--index", "0x2005", "--data", data, "--block")
@@ -232,7 +232,7 @@ func TestStackClient(t *testing.T) {
 			})
 			scenario(t, a, "stack-pdo-receive", func(t *testing.T) {
 				if !c.op("pdo-receive") {
-					skipf(t, "%s has no pdo-receive", a)
+					capSkip(t, "%s has no pdo-receive", a)
 				}
 				want(t, ctl(t, "nmt", "start", "6", "-i", ifc), 0)
 				code, out := adapterRun(t, a, "pdo-receive", "--interface", ifc, "--node-id", "6", "--tpdo", "1", "--count", "2", "--timeout-ms", "10000")
@@ -242,7 +242,7 @@ func TestStackClient(t *testing.T) {
 			})
 			scenario(t, a, "stack-pdo-configure", func(t *testing.T) {
 				if !c.op("pdo-configure") {
-					skipf(t, "%s has no pdo-configure", a)
+					capSkip(t, "%s has no pdo-configure", a)
 				}
 				want(t, ctl(t, "nmt", "preop", "6", "-i", ifc), 0)
 				code, out := adapterRun(t, a, "pdo-configure", "--interface", ifc, "--node-id", "6", "--tpdo", "2", "--map", "0x2002:00:32",
@@ -254,7 +254,7 @@ func TestStackClient(t *testing.T) {
 			})
 			scenario(t, a, "stack-sync", func(t *testing.T) {
 				if !c.op("sync") {
-					skipf(t, "%s has no sync", a)
+					capSkip(t, "%s has no sync", a)
 				}
 				mon := startCtl(t, "monitor", "-i", ifc, "--service", "sync", "--count", "3", "--duration", "30s")
 				time.Sleep(300 * time.Millisecond)
@@ -269,7 +269,7 @@ func TestStackClient(t *testing.T) {
 			})
 			scenario(t, a, "stack-listen-bootup-heartbeat", func(t *testing.T) {
 				if !c.op("listen") || !c.Features["listenBootup"] {
-					skipf(t, "%s cannot listen for boot-ups", a)
+					capSkip(t, "%s cannot listen for boot-ups", a)
 				}
 				l := startContainer(t, a, "listen", "--interface", ifc, "--node-id", "6", "--count", "2", "--timeout-ms", "20000")
 				l.await(t, `"type":"ready"`, 60*time.Second)
@@ -284,7 +284,7 @@ func TestStackClient(t *testing.T) {
 			sim.stop()
 			scenario(t, a, "stack-listen-emcy", func(t *testing.T) {
 				if !c.op("listen") || !c.Features["listenEmcy"] {
-					skipf(t, "%s cannot listen for EMCY", a)
+					capSkip(t, "%s cannot listen for EMCY", a)
 				}
 				l := startContainer(t, a, "listen", "--interface", ifc, "--node-id", "8", "--count", "8", "--timeout-ms", "8000")
 				l.await(t, `"type":"ready"`, 60*time.Second)
@@ -298,7 +298,7 @@ func TestStackClient(t *testing.T) {
 			})
 			scenario(t, a, "stack-cia402-enable", func(t *testing.T) {
 				if !c.op("cia402") {
-					skipf(t, "%s has no cia402 client", a)
+					capSkip(t, "%s has no cia402 client", a)
 				}
 				s := startCtl(t, "simulate", "-i", ifc, "--node-id", "7", "--drive")
 				s.await(t, "node 7 running", 10*time.Second)
@@ -331,7 +331,7 @@ func TestEDSCheck(t *testing.T) {
 			for _, f := range files {
 				scenario(t, a, "eds-"+strings.TrimSuffix(f, filepath.Ext(f)), func(t *testing.T) {
 					if !c.op("eds-check") {
-						skipf(t, "%s has no eds-check", a)
+						capSkip(t, "%s has no eds-check", a)
 					}
 					local := fixture(t, a, "eds/"+f, dir)
 					_, out := adapterRun(t, a, "eds-check", "--eds", "/fixtures/eds/"+f)
