@@ -12,9 +12,13 @@ import (
 	"github.com/otfabric/go-canbus"
 	"github.com/otfabric/go-canopen"
 	"github.com/otfabric/go-canopen/cia402"
+	"github.com/otfabric/go-canopen/lss"
 	"github.com/otfabric/go-canopen/master"
+	"github.com/otfabric/go-canopen/mpdo"
 	"github.com/otfabric/go-canopen/pdo"
+	"github.com/otfabric/go-canopen/program"
 	"github.com/otfabric/go-canopen/timestamp"
+	"github.com/otfabric/go-canopen/usdo"
 )
 
 func TestClassify(t *testing.T) {
@@ -55,6 +59,15 @@ func TestClassify(t *testing.T) {
 		{&cia402.Error{Op: "enable", Err: canopen.ErrTimeout}, KindTimeout, CodeTimeout},
 		{&cia402.Error{Op: "enable", Err: context.Canceled}, KindInternal, CodeCanceled},
 		{&cia402.Error{Op: "enable", Err: canbus.ErrClosed}, KindTransport, CodeIO},
+		{&usdo.AbortError{Code: usdo.FromSDO(canopen.AbortNoObject), Node: 5, Index: 0x5FFF, Remote: true}, KindAbort, CodeSDOAbort},
+		{&usdo.AbortError{Code: usdo.FromSDO(canopen.AbortGeneral), Node: 5}, KindProtocol, CodeSDOProtocol},
+		{&master.BootError{Node: 5, Status: master.BootVendorID}, KindDevice, CodeBootFailed},
+		{fmt.Errorf("x: %w", &lss.ConfigError{Code: lss.CodeOutOfRange}), KindDevice, CodeLSSRefused},
+		{program.FlashWriteError, KindDevice, CodeProgramFailed},
+		{master.ErrProgram, KindDevice, CodeProgramFailed},
+		{lss.ErrConflict, KindDevice, CodeLSSConflict},
+		{lss.ErrNoNodeID, KindDevice, CodeNoNodeID},
+		{mpdo.ErrInactive, KindDevice, CodeMPDO},
 	}
 	for _, c := range cases {
 		e := Classify(c.err)
@@ -65,6 +78,10 @@ func TestClassify(t *testing.T) {
 	e := Classify(fmt.Errorf("sdo: %w", remote))
 	if e.Abort == nil || e.Abort.Code != "0x06020000" || e.Abort.Index != 0x5FFF || !e.Abort.Remote || e.Abort.Text == "" {
 		t.Fatalf("%+v", e.Abort)
+	}
+	u := Classify(&usdo.AbortError{Code: usdo.FromSDO(canopen.AbortNoObject), Index: 0x5FFF, Remote: true})
+	if u.Abort == nil || u.Abort.Code != "0x06020000" || u.Abort.USDOCode == "" || !u.Abort.Remote {
+		t.Fatalf("%+v", u.Abort)
 	}
 	d := Classify(&cia402.Error{Op: "enable", State: cia402.Fault, Statusword: 0x0218, FaultCode: 0x2310, Err: fmt.Errorf("%w: %w", cia402.ErrFault, remote)})
 	if d.Drive == nil || d.Drive.FaultCode != "0x2310" || d.Drive.Statusword != "0x0218" || d.Abort == nil {

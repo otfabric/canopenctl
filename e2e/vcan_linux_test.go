@@ -232,3 +232,68 @@ func TestVCANSafety(t *testing.T) {
 		t.Fatalf("expected one NMT command:\n%s", r.out)
 	}
 }
+
+// TestVCANLSSBoot runs two unconfigured LSS devices as processes on vcan0,
+// finds them with Fastscan and boots them as a CiA 302 manager with the
+// LSS step, configuring one from a concise DCF converted from a DCF.
+func TestVCANLSSBoot(t *testing.T) {
+	ifc := vcan0(t)
+	a := start(t, "simulate", "-i", ifc, "--lss", "--serial", "0x3001", "--format", "json")
+	b := start(t, "simulate", "-i", ifc, "--lss", "--serial", "0x3002", "--format", "json")
+	a.await(t, `"type":"ready"`, 10*time.Second)
+	b.await(t, `"type":"ready"`, 10*time.Second)
+	known := []string{"--vendor", "0xF7A", "--product", "0xC0C7", "--revision", "0x10000", "--window", "20ms"}
+	want(t, run(t, "", append([]string{"lss", "fastscan", "-i", ifc}, known...)...), 0,
+		"00000F7A:0000C0C7:00010000:00003001", "00000F7A:0000C0C7:00010000:00003002", "2 unconfigured devices")
+	dir := t.TempDir()
+	dcf := filepath.Join(dir, "node23.dcf")
+	cdcf := filepath.Join(dir, "node23.cdcf")
+	want(t, run(t, "", "eds", "convert", testdata("io401.eds"), "--node-id", "23", "-o", dcf), 0)
+	want(t, run(t, "", "cdcf", "convert", dcf, "-o", cdcf), 0, "cdcf")
+	want(t, run(t, "", "cdcf", "show", cdcf), 0, "entries")
+	cfg := filepath.Join(dir, "text.cdcf")
+	// A concise DCF for the built-in device: 0x2002 = "lss" (made by the
+	// binary from a DCF would need the device's EDS; write it by hand).
+	blob := []byte{1, 0, 0, 0, 0x02, 0x20, 0x00, 3, 0, 0, 0, 'l', 's', 's'}
+	if err := os.WriteFile(cfg, blob, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r := run(t, "", "boot", "-i", ifc, "--lss", "--lss-window", "20ms", "--slave", "23="+cfg, "--expect", "23=F7A:C0C7:10000:3001",
+		"--slave", "24", "--expect", "24=F7A:C0C7:10000:3002", "--format", "json")
+	want(t, r, 0, `"booted": 2`, `"lss": {`)
+	want(t, run(t, "", "sdo", "read", "23", "0x2002", "0", "-t", "string", "-i", ifc), 0, `"lss"`)
+	want(t, run(t, "", "nmt", "preop", "all", "-i", ifc), 0)
+	want(t, run(t, "", "lss", "inquire", "--address", "00000F7A:0000C0C7:00010000:00003002", "-i", ifc), 0, "node-ID 24")
+	for _, p := range []*proc{a, b} {
+		if code := p.stop(t); code != 0 {
+			t.Fatalf("simulate exit %d\n%s", code, p.err.String())
+		}
+	}
+}
+
+// TestVCANFD runs a CANopen FD node process on vcan0 (CAN FD MTU) and
+// operates it over USDO while monitor decodes the traffic.
+func TestVCANFD(t *testing.T) {
+	ifc := vcan0(t)
+	if mtu, err := os.ReadFile("/sys/class/net/" + ifc + "/mtu"); err != nil || strings.TrimSpace(string(mtu)) != "72" {
+		if os.Getenv("CANOPENCTL_REQUIRE_VCAN") == "1" {
+			t.Fatalf("%s has no CAN FD MTU (72): sudo ip link set %s mtu 72", ifc, ifc)
+		}
+		t.Skipf("SKIP: %s has no CAN FD MTU (72): sudo ip link set %s mtu 72", ifc, ifc)
+	}
+	sim := start(t, "simulate", "-i", ifc, "--node-id", "25", "--fd", "--program", "--heartbeat", "50")
+	sim.await(t, "node 25 running", 10*time.Second)
+	mon := start(t, "monitor", "-i", ifc, "--fd", "--node", "25", "--service", "usdo", "--count", "2", "--format", "json")
+	time.Sleep(200 * time.Millisecond)
+	want(t, run(t, "", "sdo", "read", "25", "0x1008", "0", "-i", ifc, "--fd"), 0, "canopenctl simulated node")
+	want(t, mon.wait(t, 10*time.Second), 0, `"kind":"usdo-request"`, `"kind":"usdo-response"`)
+	want(t, run(t, "", "nmt", "start", "25", "-i", ifc, "--fd", "--wait"), 0, "reports operational")
+	want(t, run(t, "", "nmt", "preop", "25", "-i", ifc, "--fd", "--wait"), 0)
+	fw := filepath.Join(t.TempDir(), "fw.bin")
+	_ = os.WriteFile(fw, bytes.Repeat([]byte("firmware"), 500), 0o644)
+	want(t, run(t, "", "program", "download", "25", fw, "--crc32", "-i", ifc, "--fd"), 0, "4000 bytes")
+	want(t, run(t, "", "scan", "-i", ifc, "--fd", "--nodes", "20-30"), 0, "node  25")
+	if code := sim.stop(t); code != 0 {
+		t.Fatalf("simulate exit %d\n%s", code, sim.err.String())
+	}
+}

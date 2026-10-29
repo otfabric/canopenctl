@@ -3,20 +3,27 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
+	"hash/crc32"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/otfabric/canopenctl/internal/cli"
 	"github.com/otfabric/canopenctl/internal/errs"
 	"github.com/otfabric/go-canopen"
 	"github.com/otfabric/go-canopen/cia402"
+	"github.com/otfabric/go-canopen/eds"
 	"github.com/otfabric/go-canopen/emcy"
+	"github.com/otfabric/go-canopen/lss"
 	"github.com/otfabric/go-canopen/nmt"
 	"github.com/otfabric/go-canopen/node"
 	"github.com/otfabric/go-canopen/od"
+	"github.com/otfabric/go-canopen/program"
+	"github.com/otfabric/go-canopen/store"
 	"github.com/spf13/cobra"
 )
 
@@ -33,7 +40,13 @@ const (
 // consumer heartbeat, error history, node guarding, TIME) and a few
 // application objects, TPDO1 mapping the counter 0x2000 (event-driven).
 func builtinDictionary(id canopen.NodeID, drive bool) (*od.Dictionary, error) {
-	cfg := od.Config{NodeID: id, VendorID: 0x00000F7A, ProductCode: 0x0000C0C7, Revision: 0x00010000, SerialNumber: uint32(id),
+	return builtinDictionarySerial(id, drive, uint32(id))
+}
+
+// builtinDictionarySerial is builtinDictionary with the serial number
+// 0x1018:04 (part of the LSS address) as default.
+func builtinDictionarySerial(id canopen.NodeID, drive bool, serial uint32) (*od.Dictionary, error) {
+	cfg := od.Config{NodeID: id, VendorID: 0x00000F7A, ProductCode: 0x0000C0C7, Revision: 0x00010000, SerialNumber: serial,
 		DeviceName: "canopenctl simulated node", HardwareVersion: "virtual", SoftwareVersion: "canopenctl",
 		HeartbeatMs: 1000, HeartbeatConsumers: 4, ErrorHistory: 8, RPDOs: 4, TPDOs: 4, NodeGuarding: true, Time: true}
 	if drive {
@@ -68,6 +81,26 @@ func builtinDictionary(id canopen.NodeID, drive bool) (*od.Dictionary, error) {
 		}
 	}
 	return d, nil
+}
+
+// setSerial makes serial the serial number 0x1018:04 of an EDS or DCF
+// (its default and its DCF value); false when the file lacks it.
+func setSerial(f *eds.File, serial uint32) bool {
+	for _, o := range f.Objects {
+		if o.Index != od.IndexIdentity {
+			continue
+		}
+		for _, sub := range o.Subs {
+			if sub.SubIndex == 4 {
+				sub.DefaultValue = fmt.Sprintf("0x%08X", serial)
+				if sub.HasParameterValue {
+					sub.ParameterValue = sub.DefaultValue
+				}
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // tickTarget is an object simulate increments.
@@ -137,12 +170,54 @@ func parseEMCY(s string) (uint16, emcy.ErrorRegister, [5]byte, error) {
 	return uint16(code), reg, msef, nil
 }
 
+// memProgram is the program memory of simulate --program: the image
+// written to 0x1F50 becomes the running program at "start"; the
+// application software identification 0x1F56 is the CRC-32 (IEEE) of the
+// image.
+type memProgram struct {
+	mu             sync.Mutex
+	image, running []byte
+}
+
+func (p *memProgram) Control(_ uint8, cmd program.Command) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	switch cmd {
+	case program.Start:
+		p.running = p.image
+	case program.Clear:
+		p.image = nil
+	default: // stop, reset: nothing to do in memory
+	}
+	return nil
+}
+
+func (p *memProgram) Download(_ uint8, data []byte) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.image = bytes.Clone(data)
+	return nil
+}
+
+func (p *memProgram) Identification(uint8) uint32 {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.image == nil {
+		return 0
+	}
+	return crc32.ChecksumIEEE(p.image)
+}
+
 type simReady struct {
 	Node    canopen.NodeID `json:"node"`
 	State   string         `json:"state"`
 	Objects int            `json:"objects"`
 	Source  string         `json:"source"`
 	Drive   bool           `json:"drive"`
+	LSS     bool           `json:"lss,omitempty"`
+	FD      bool           `json:"fd,omitempty"`
+	Store   string         `json:"store,omitempty"`
+	Program bool           `json:"program,omitempty"`
 }
 
 type simState struct {
@@ -171,6 +246,9 @@ func newSimulateCmd(a *app) *cobra.Command {
 		ticks                   []string
 		emcySpec                string
 		emcyAfter, duration     time.Duration
+		lssOn, prog             bool
+		serial                  string
+		storePath               string
 	)
 	c := &cobra.Command{
 		Use:   "simulate",
@@ -187,12 +265,24 @@ mapped in RPDO1), 0x2002 (VISIBLE_STRING) and 0x2003 (DOMAIN).
 velocity, homing...). --tick increments objects every --tick-period, so that
 event-driven TPDOs carry changing data; --emcy raises an emergency
 --emcy-after the start. The node runs until --duration or Ctrl-C and prints
-its NMT state changes. It transmits like any device: on an interface that is
+its NMT state changes.
+
+--lss makes the node an LSS slave (CiA 305): without --node-id it starts
+unconfigured (node-ID 0xFF: silent until an LSS master such as "canopenctl
+lss" gives it a node-ID); --serial sets its serial number 0x1018:04 so that
+several simulated devices have distinct LSS addresses. --fd makes it a
+CANopen FD device (CiA 1301): USDO server instead of SDO, FD PDOs, EMCY,
+heartbeat. --store FILE keeps its parameters (0x1010/0x1011 and the LSS
+node-ID) in FILE across restarts; --program adds the program download
+objects 0x1F50..0x1F57 (CiA 302-3) with a program memory whose 0x1F56 is
+the CRC-32 of the image. It transmits like any device: on an interface that is
 not virtual it needs --yes. On "virtual" it shares the in-process bus with
 nothing else; use vcan0 to talk to it from another canopenctl.`,
 		Example: `  canopenctl simulate -i vcan0 --node-id 5
   canopenctl simulate -i vcan0 --eds io401.eds --node-id 5 --tick 6000:01 --auto-start
-  canopenctl simulate -i vcan0 --node-id 3 --drive`,
+  canopenctl simulate -i vcan0 --node-id 3 --drive
+  canopenctl simulate -i vcan0 --lss --serial 0x1001 --store node.cdcf
+  canopenctl simulate -i vcan0 --node-id 5 --fd --program`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if drivePeriod <= 0 || tickPeriod < time.Millisecond {
@@ -201,6 +291,18 @@ nothing else; use vcan0 to talk to it from another canopenctl.`,
 			if heartbeat < -1 || heartbeat > 0xFFFF {
 				return errs.Invalid("--heartbeat %d: 0..65535 ms", heartbeat)
 			}
+			if err := bf.checkFD(); err != nil {
+				return err
+			}
+			unconfigured := lssOn && nodeID == 0
+			var serialNo uint32
+			if serial != "" {
+				v, err := cli.ParseUint32(serial)
+				if err != nil {
+					return errs.Invalid("invalid --serial %q (decimal or 0x hexadecimal UNSIGNED32)", serial)
+				}
+				serialNo = v
+			}
 			var d *od.Dictionary
 			source := "built-in"
 			if edsPath != "" {
@@ -208,14 +310,21 @@ nothing else; use vcan0 to talk to it from another canopenctl.`,
 				if err != nil {
 					return err
 				}
-				if nodeID == 0 && f.DeviceComissioning != nil {
+				if nodeID == 0 && !lssOn && f.DeviceComissioning != nil {
 					nodeID = int(f.DeviceComissioning.NodeID)
 				}
-				if nodeID < 1 || nodeID > 127 {
-					return errs.Invalid("--node-id %d: 1..127 (required unless the DCF has one)", nodeID)
+				if !unconfigured && (nodeID < 1 || nodeID > 127) {
+					return errs.Invalid("--node-id %d: 1..127 (required unless the DCF has one, or with --lss)", nodeID)
+				}
+				build := canopen.NodeID(nodeID)
+				if unconfigured {
+					build = lss.Unconfigured
+				}
+				if serial != "" && !setSerial(f, serialNo) {
+					return errs.Invalid("--serial: %s has no 0x1018:04", edsPath)
 				}
 				var diags []string
-				dd, ds, err := cli.Dictionary(f, edsPath, canopen.NodeID(nodeID), true)
+				dd, ds, err := cli.Dictionary(f, edsPath, build, true)
 				if err != nil {
 					return err
 				}
@@ -227,11 +336,19 @@ nothing else; use vcan0 to talk to it from another canopenctl.`,
 				}
 				d, source = dd, edsPath
 			} else {
-				if nodeID < 1 || nodeID > 127 {
-					return errs.Invalid("--node-id %d: 1..127 (required)", nodeID)
+				if !unconfigured && (nodeID < 1 || nodeID > 127) {
+					return errs.Invalid("--node-id %d: 1..127 (required unless --lss)", nodeID)
+				}
+				build := canopen.NodeID(nodeID)
+				if unconfigured {
+					build = lss.Unconfigured
+				}
+				sn := uint32(build)
+				if serial != "" {
+					sn = serialNo
 				}
 				var err error
-				if d, err = builtinDictionary(canopen.NodeID(nodeID), drive); err != nil {
+				if d, err = builtinDictionarySerial(build, drive, sn); err != nil {
 					return errs.New(errs.KindInternal, errs.CodeInternalUnexpected, "built-in dictionary: %v", err)
 				}
 			}
@@ -240,6 +357,11 @@ nothing else; use vcan0 to talk to it from another canopenctl.`,
 					return errs.Invalid("--heartbeat: the dictionary has no 0x1017")
 				}
 				_ = d.SetUint(od.IndexProducerHeartbeat, 0, uint64(heartbeat))
+			}
+			if lssOn {
+				if _, err := lss.AddressFromDictionary(d); err != nil {
+					return errs.Invalid("--lss: the dictionary has no complete identity 0x1018 (%v)", err)
+				}
 			}
 			var code uint16
 			var reg emcy.ErrorRegister
@@ -257,6 +379,21 @@ nothing else; use vcan0 to talk to it from another canopenctl.`,
 			if autoStart {
 				opts = append(opts, node.WithAutoStart())
 			}
+			if lssOn {
+				opts = append(opts, node.WithLSS())
+			}
+			if bf.fd {
+				opts = append(opts, node.WithFD(bf.brs))
+			}
+			if storePath != "" {
+				if err := store.AddObjects(d); err != nil {
+					return errs.Invalid("--store: %v", err)
+				}
+				opts = append(opts, node.WithStore(store.NewFile(storePath)))
+			}
+			if prog {
+				opts = append(opts, node.WithProgram(program.Config{Handler: &memProgram{}}))
+			}
 			states := make(chan nmt.StateChange, 256)
 			opts = append(opts, node.WithStateHandler(func(sc nmt.StateChange) {
 				select {
@@ -267,7 +404,7 @@ nothing else; use vcan0 to talk to it from another canopenctl.`,
 			if err := bf.check("simulate"); err != nil {
 				return err
 			}
-			bus, err := openBus(bf.iface, openOpts{})
+			bus, err := bf.open(false)
 			if err != nil {
 				return err
 			}
@@ -286,8 +423,13 @@ nothing else; use vcan0 to talk to it from another canopenctl.`,
 			}
 			defer func() { _ = n.Close() }()
 			st := a.stream()
-			if err := st.Record("ready", fmt.Sprintf("node %d running (%s, %d objects), %s", n.NodeID(), source, len(d.Objects()), n.State()),
-				simReady{Node: n.NodeID(), State: n.State().String(), Objects: len(d.Objects()), Source: source, Drive: drive}); err != nil {
+			id := fmt.Sprintf("node %d", n.NodeID())
+			if n.NodeID() == lss.Unconfigured {
+				id = "unconfigured LSS node"
+			}
+			if err := st.Record("ready", fmt.Sprintf("%s running (%s, %d objects), %s", id, source, len(d.Objects()), n.State()),
+				simReady{Node: n.NodeID(), State: n.State().String(), Objects: len(d.Objects()), Source: source, Drive: drive,
+					LSS: lssOn, FD: bf.fd, Store: storePath, Program: prog}); err != nil {
 				return errs.New(errs.KindOutput, errs.CodeOutputFailed, "write output: %w", err)
 			}
 			ctx, cancel := bounded(cmd.Context(), duration)
@@ -345,8 +487,13 @@ nothing else; use vcan0 to talk to it from another canopenctl.`,
 		},
 	}
 	bf.add(c, true)
+	bf.addFD(c, "run a CANopen FD device (USDO server, FD PDOs, EMCY, heartbeat)")
 	c.Flags().StringVar(&edsPath, "eds", "", "EDS or DCF of the simulated device (default: a built-in device)")
-	c.Flags().IntVar(&nodeID, "node-id", 0, "Node-ID 1..127 (default: the DCF's)")
+	c.Flags().IntVar(&nodeID, "node-id", 0, "Node-ID 1..127 (default: the DCF's; with --lss: none, the node starts unconfigured)")
+	c.Flags().BoolVar(&lssOn, "lss", false, "Make the node an LSS slave (CiA 305); without --node-id it starts unconfigured")
+	c.Flags().StringVar(&serial, "serial", "", "Serial number 0x1018:04 (part of the LSS address; default: the dictionary's)")
+	c.Flags().StringVar(&storePath, "store", "", "Keep the parameters (0x1010/0x1011, LSS store) in this file")
+	c.Flags().BoolVar(&prog, "program", false, "Add the program download objects 0x1F50..0x1F57 with an in-memory program")
 	c.Flags().BoolVar(&drive, "drive", false, "Simulate a CiA 402 drive (adds its objects where missing)")
 	c.Flags().DurationVar(&drivePeriod, "drive-period", time.Millisecond, "Simulation step of the drive")
 	c.Flags().BoolVar(&autoStart, "auto-start", false, "Enter operational right after the boot-up (and after every reset)")

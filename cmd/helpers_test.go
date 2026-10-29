@@ -14,8 +14,10 @@ import (
 	"time"
 
 	"github.com/otfabric/go-canbus"
+	"github.com/otfabric/go-canbus/virtual"
 	"github.com/otfabric/go-canopen"
 	"github.com/otfabric/go-canopen/eds"
+	"github.com/otfabric/go-canopen/lss"
 	"github.com/otfabric/go-canopen/node"
 	"github.com/otfabric/go-canopen/od"
 )
@@ -90,6 +92,56 @@ func port(t *testing.T) *canbus.Bus {
 	}
 	t.Cleanup(func() { _ = b.Close() })
 	return b
+}
+
+// fdPort opens a CAN FD bus on the shared virtual bus, closed with the
+// test.
+func fdPort(t *testing.T) *canbus.Bus {
+	t.Helper()
+	p, err := sharedVirtual().Open(virtual.WithFD())
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := canbus.NewBus(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = b.Close() })
+	return b
+}
+
+// fdNode starts a CANopen FD node (node.WithFD) on a CAN FD port of the
+// virtual bus.
+func fdNode(t *testing.T, d *od.Dictionary, opts ...node.Option) *node.Node {
+	t.Helper()
+	n, err := node.New(fdPort(t), d, append(opts, node.WithFD(false))...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := n.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = n.Close() })
+	return n
+}
+
+// lssNode starts an LSS slave with simulate's built-in dictionary and
+// serial number serial: unconfigured with id 0.
+func lssNode(t *testing.T, id canopen.NodeID, serial uint32, opts ...node.Option) *node.Node {
+	t.Helper()
+	if id == 0 {
+		id = lss.Unconfigured
+	}
+	d, err := builtinDictionarySerial(id, false, serial)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return simNode(t, d, append(opts, node.WithLSS())...)
+}
+
+// lssAddr is the LSS address of a built-in node with a serial number.
+func lssAddr(serial uint32) string {
+	return lss.Address{Vendor: 0x00000F7A, Product: 0x0000C0C7, Revision: 0x00010000, Serial: serial}.String()
 }
 
 // simNode starts a node with a dictionary on the virtual bus.

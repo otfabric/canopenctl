@@ -205,19 +205,22 @@ sends SDO read requests.`,
 			if err != nil {
 				return err
 			}
-			bus, err := openBus(bf.iface, openOpts{})
+			if err := bf.checkFD(); err != nil {
+				return err
+			}
+			bus, err := bf.open(false)
 			if err != nil {
 				return err
 			}
 			defer func() { _ = bus.Close() }()
-			cl, err := sdoClient(bus, node, &sf)
+			cl, err := newRemote(bus, node, &sf, &bf)
 			if err != nil {
 				return err
 			}
 			defer func() { _ = cl.Close() }()
 			r := pdoShowResult{Node: node, PDOs: []pdoInfo{}}
 			for _, s := range list {
-				cfg, err := pdo.ReadConfig(cmd.Context(), sdoAdapter{cl}, s.transmit, s.n)
+				cfg, err := pdo.ReadConfig(cmd.Context(), cl, s.transmit, s.n)
 				if err != nil {
 					if len(list) > 1 && isAbsent(err) {
 						continue
@@ -230,7 +233,9 @@ sends SDO read requests.`,
 		},
 	}
 	bf.add(c, false)
+	bf.addFD(c, "read over USDO instead of SDO")
 	sf.add(c, false)
+	sf.addFD(c)
 	c.Flags().IntVar(&tpdo, "tpdo", 0, "Only this TPDO (1..512)")
 	c.Flags().IntVar(&rpdo, "rpdo", 0, "Only this RPDO (1..512)")
 	c.Flags().StringVar(&edsPath, "eds", "", "EDS or DCF of the node: names of the mapped objects")
@@ -325,15 +330,18 @@ mapping changes only in pre-operational.`,
 					return errs.Invalid("--cob-id %s is reserved by CiA 301 (NMT, SYNC, EMCY, SDO, heartbeat, LSS)", cob)
 				}
 			}
+			if err := bf.checkFD(); err != nil {
+				return err
+			}
 			if err := bf.check("pdo map"); err != nil {
 				return err
 			}
-			bus, err := openBus(bf.iface, openOpts{})
+			bus, err := bf.open(false)
 			if err != nil {
 				return err
 			}
 			defer func() { _ = bus.Close() }()
-			mst, err := master.New(bus, master.WithSDOOptions(sf.options()...))
+			mst, err := master.New(bus, sf.masterOptions(&bf)...)
 			if err != nil {
 				return err
 			}
@@ -380,7 +388,9 @@ mapping changes only in pre-operational.`,
 		},
 	}
 	bf.add(c, true)
+	bf.addFD(c, "write over USDO instead of SDO")
 	sf.add(c, false)
+	sf.addFD(c)
 	c.Flags().IntVar(&tpdo, "tpdo", 0, "Configure this TPDO (1..512)")
 	c.Flags().IntVar(&rpdo, "rpdo", 0, "Configure this RPDO (1..512)")
 	c.Flags().StringVar(&mapping, "map", "", "Mapping entries IIII:SS:BITS, comma-separated")

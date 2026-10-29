@@ -86,6 +86,7 @@ type sdoValue struct {
 	Data       string         `json:"data"`
 	Value      any            `json:"value"`
 	Block      bool           `json:"block"`
+	FD         bool           `json:"fd,omitempty"`
 	Verified   *bool          `json:"verified,omitempty"`
 	File       string         `json:"file,omitempty"`
 	write      bool
@@ -157,9 +158,12 @@ func newSDOCmd(a *app) *cobra.Command {
 		Use:   "sdo",
 		Short: "Read and write a node's object dictionary (SDO client)",
 		Long: `The sdo commands are an SDO client (CiA 301): expedited, segmented and block
-transfer (--block). A device that refuses a transfer answers with an SDO abort
-code: it is printed with its meaning and ends the command with exit code 11
-(JSON: the error's "abort" object). Indices are hexadecimal (1018, 0x1018);
+transfer (--block). With --fd they are a USDO client of CANopen FD (CiA 1301)
+instead: expedited and segmented transfers in CAN FD frames, --block selecting
+bulk downloads; --client-id is canopenctl's USDO node-ID (default 127). A
+device that refuses a transfer answers with an abort code: it is printed with
+its meaning and ends the command with exit code 11 (JSON: the error's "abort"
+object; a USDO abort is reported with its SDO equivalent and "usdoCode"). Indices are hexadecimal (1018, 0x1018);
 sub-indices decimal or 0x hexadecimal.`,
 	}
 	c.AddCommand(newSDOReadCmd(a), newSDOWriteCmd(a), newSDODumpCmd(a))
@@ -194,6 +198,9 @@ objects). read only sends SDO read requests: it needs no --yes.`,
 			if err := sf.validate(); err != nil {
 				return err
 			}
+			if err := bf.checkFD(); err != nil {
+				return err
+			}
 			d, err := loadDesc(edsPath, t.node)
 			if err != nil {
 				return err
@@ -202,12 +209,12 @@ objects). read only sends SDO read requests: it needs no --yes.`,
 			if err != nil {
 				return err
 			}
-			bus, err := openBus(bf.iface, openOpts{})
+			bus, err := bf.open(false)
 			if err != nil {
 				return err
 			}
 			defer func() { _ = bus.Close() }()
-			cl, err := sdoClient(bus, t.node, &sf)
+			cl, err := newRemote(bus, t.node, &sf, &bf)
 			if err != nil {
 				return err
 			}
@@ -217,7 +224,7 @@ objects). read only sends SDO read requests: it needs no --yes.`,
 				return err
 			}
 			r := sdoValue{Node: t.node, Index: t.index, SubIndex: t.sub, Key: cli.Key(t.index, t.sub), Name: d.name(t.index, t.sub),
-				Size: len(data), Data: fmt.Sprintf("%x", data), Block: cl.Stats().BlockTransfers > 0}
+				Size: len(data), Data: fmt.Sprintf("%x", data), Block: cl.blocked(), FD: bf.fd}
 			if outPath != "" {
 				if err := os.WriteFile(outPath, data, 0o644); err != nil {
 					return errs.New(errs.KindOutput, errs.CodeOutputFailed, "write %s: %w", outPath, err)
@@ -241,7 +248,9 @@ objects). read only sends SDO read requests: it needs no --yes.`,
 		},
 	}
 	bf.add(c, false)
+	bf.addFD(c, "read over USDO instead of SDO")
 	sf.add(c, true)
+	sf.addFD(c)
 	c.Flags().StringVarP(&typ, "type", "t", "", "Data type: UNSIGNED32, INTEGER16, REAL32, VISIBLE_STRING, OCTET_STRING, DOMAIN... or u32, i16, f32, string, octets")
 	c.Flags().StringVar(&edsPath, "eds", "", "EDS or DCF of the node: names and data types")
 	c.Flags().StringVarP(&outPath, "output", "o", "", "Also write the raw data to this file")
@@ -277,6 +286,9 @@ value back and exits 1 when it differs.`,
 				return err
 			}
 			if err := sf.validate(); err != nil {
+				return err
+			}
+			if err := bf.checkFD(); err != nil {
 				return err
 			}
 			if (len(args) == 4) == (inPath != "") {
@@ -318,12 +330,12 @@ value back and exits 1 when it differs.`,
 			if err := bf.check("sdo write"); err != nil {
 				return err
 			}
-			bus, err := openBus(bf.iface, openOpts{})
+			bus, err := bf.open(false)
 			if err != nil {
 				return err
 			}
 			defer func() { _ = bus.Close() }()
-			cl, err := sdoClient(bus, t.node, &sf)
+			cl, err := newRemote(bus, t.node, &sf, &bf)
 			if err != nil {
 				return err
 			}
@@ -334,7 +346,7 @@ value back and exits 1 when it differs.`,
 			v, _ := cli.JSONValue(dt, data)
 			r := sdoValue{Node: t.node, Index: t.index, SubIndex: t.sub, Key: cli.Key(t.index, t.sub), Name: d.name(t.index, t.sub),
 				Type: dt.String(), TypeSource: src, Size: len(data), Data: fmt.Sprintf("%x", data), Value: v,
-				Block: cl.Stats().BlockTransfers > 0, File: inPath, write: true, text: text}
+				Block: cl.blocked(), FD: bf.fd, File: inPath, write: true, text: text}
 			if verify {
 				back, err := cl.Upload(cmd.Context(), t.index, t.sub)
 				if err != nil {
@@ -354,7 +366,9 @@ value back and exits 1 when it differs.`,
 		},
 	}
 	bf.add(c, true)
+	bf.addFD(c, "write over USDO instead of SDO (--block: bulk transfer)")
 	sf.add(c, true)
+	sf.addFD(c)
 	c.Flags().StringVarP(&typ, "type", "t", "", "Data type: UNSIGNED32, INTEGER16, REAL32, VISIBLE_STRING, OCTET_STRING, DOMAIN... or u32, i16, f32, string, octets")
 	c.Flags().StringVar(&edsPath, "eds", "", "EDS or DCF of the node: data types and names")
 	c.Flags().StringVar(&inPath, "file", "", "Download this file's content instead of a value")
@@ -457,6 +471,9 @@ code 1. When the node does not answer at all, dump stops with a timeout (exit
 			if err := sf.validate(); err != nil {
 				return err
 			}
+			if err := bf.checkFD(); err != nil {
+				return err
+			}
 			lo, hi, err := indexRange(rng)
 			if err != nil {
 				return err
@@ -465,12 +482,12 @@ code 1. When the node does not answer at all, dump stops with a timeout (exit
 			if err != nil {
 				return err
 			}
-			bus, err := openBus(bf.iface, openOpts{})
+			bus, err := bf.open(false)
 			if err != nil {
 				return err
 			}
 			defer func() { _ = bus.Close() }()
-			cl, err := sdoClient(bus, node, &sf)
+			cl, err := newRemote(bus, node, &sf, &bf)
 			if err != nil {
 				return err
 			}
@@ -529,7 +546,9 @@ code 1. When the node does not answer at all, dump stops with a timeout (exit
 		},
 	}
 	bf.add(c, false)
+	bf.addFD(c, "read over USDO instead of SDO")
 	sf.add(c, true)
+	sf.addFD(c)
 	c.Flags().StringVar(&edsPath, "eds", "", "EDS or DCF of the node (required)")
 	c.Flags().StringVar(&rng, "range", "", "Only objects in this index range: 6000-6FFF, or one index")
 	_ = c.MarkFlagRequired("eds")

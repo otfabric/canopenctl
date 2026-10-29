@@ -4,16 +4,20 @@ Generated from `canopenctl <command> --help` by scripts/gen-cli-doc.sh; do not e
 Exit codes: [exitcodes.md](exitcodes.md). JSON output: [json-output.md](json-output.md).
 
 ```text
-canopenctl is a command-line toolkit for CANopen (CiA 301, CiA 306 EDS/DCF,
-CiA 402 drives), built on github.com/otfabric/go-canopen and go-canbus.
+canopenctl is a command-line toolkit for CANopen (CiA 301, CiA 302 network
+management, CiA 305 LSS, CiA 306 EDS/DCF, CiA 402 drives, CiA 1301 CANopen
+FD), built on github.com/otfabric/go-canopen and go-canbus.
 
-Read-only by default: monitor, decode, heartbeat watch, emcy watch and pdo
-watch never transmit; sdo read, sdo dump, scan, pdo show, dcf export and
-cia402 state only send SDO read requests. Commands that change a device or
-the network (sdo write, nmt, pdo map, dcf apply, cia402 enable/disable/
-fault-reset/quick-stop/mode/move/velocity, sync, time, simulate) need --yes on any
-interface that is not virtual (vcan, vxcan or the in-process bus
-"virtual"), and are bounded (--count, --duration, --timeout).
+Read-only by default: monitor, decode, heartbeat watch, emcy watch, pdo
+watch and mpdo watch never transmit; sdo read, sdo dump, scan, pdo show, dcf
+export, program status and cia402 state only send SDO read requests.
+Commands that change a device or the network (sdo write, nmt, pdo map, dcf
+apply, cdcf apply, cia402 enable/disable/fault-reset/quick-stop/mode/move/
+velocity, sync, time, lss, mpdo configure/scanner/dispatcher, boot, store,
+restore, program download/control, simulate) need --yes on any interface
+that is not virtual (vcan, vxcan or the in-process bus "virtual"), and are
+bounded (--count, --duration, --timeout). --fd selects CANopen FD (USDO
+instead of SDO, CAN FD frames) where a command offers it.
 
 Interfaces: a SocketCAN interface (can0, vcan0; Linux), a serial-line CAN
 adapter as slcan:<device> (slcan:/dev/ttyACM0, slcan:COM3) or
@@ -27,6 +31,8 @@ Usage:
   canopenctl [command]
 
 Available Commands:
+  boot        Boot a network as a CiA 302 manager: identity checks, configuration, start (needs --yes off virtual interfaces)
+  cdcf        Concise DCFs (CiA 302-3): convert a DCF, inspect, apply to a node
   cia402      Operate a CiA 402 drive over SDO: state, enable, disable, mode, move, velocity
   completion  Generate a shell completion script
   dcf         Apply a DCF to a node, or export a node's configuration as a DCF
@@ -35,12 +41,17 @@ Available Commands:
   emcy        Watch emergency messages
   heartbeat   Watch the heartbeats of the network
   help        Help about any command
+  lss         Layer setting services (CiA 305): node-IDs and bit rates of devices, Fastscan
   monitor     Decode live traffic as CANopen messages (passive)
+  mpdo        Multiplexed PDOs (CiA 301): configure a node's MPDO and its lists, watch MPDO traffic
   nmt         Send an NMT command to a node or to all nodes (needs --yes off virtual interfaces)
   pdo         Show, map and watch a node's process data objects
+  program     Program download (CiA 302-3): replace a node's program, control and read its state
+  restore     Make a node restore its default parameters (0x1011, needs --yes off virtual interfaces)
   scan        Find the nodes of a network: device type and identity of each (SDO reads)
   sdo         Read and write a node's object dictionary (SDO client)
   simulate    Run a simulated CANopen node (from an EDS, optionally a CiA 402 drive)
+  store       Make a node save its parameters (0x1010, needs --yes off virtual interfaces)
   sync        Produce SYNC messages (needs --yes off virtual interfaces)
   time        Send the TIME stamp (needs --yes off virtual interfaces)
   version     Print the version of canopenctl, go-canopen and go-canbus
@@ -60,8 +71,10 @@ Use "canopenctl [command] --help" for more information about a command.
 monitor receives frames and decodes them as CANopen messages by the predefined
 connection set: NMT, SYNC, TIME, EMCY, PDOs, SDO requests and responses (with
 segmented and block transfers followed, so segments name their object),
-heartbeat, boot-up, node guarding and LSS. It never transmits; slcan adapters
-are opened listen-only. --node and --service select messages; JSON output is
+heartbeat, boot-up, node guarding and LSS. With --fd it also receives CAN FD
+frames and decodes the CANopen FD services (CiA 1301): USDO requests and
+responses, 20-byte FD emergencies, and FD PDOs, heartbeats and NMT. It never
+transmits; slcan adapters are opened listen-only. --node and --service select messages; JSON output is
 JSON Lines, one record per message and a summary at the end.
 
 Usage:
@@ -74,10 +87,11 @@ Examples:
 Flags:
   -n, --count int             Stop after this many messages shown (0: no limit)
       --duration duration     Stop after this time (0: until Ctrl-C)
+      --fd                    Open the interface for CAN FD and decode CANopen FD (USDO, FD EMCY)
   -h, --help                  help for monitor
   -i, --interface string      CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
       --node string           Only messages of (or addressed to) these nodes: 5, 1-10,20
-      --service stringArray   Only these services (repeatable, comma-separated): emcy, heartbeat, lss, nmt, pdo, rpdo, sdo, sync, time, tpdo, unknown
+      --service stringArray   Only these services (repeatable, comma-separated): emcy, heartbeat, lss, nmt, pdo, rpdo, sdo, sync, time, tpdo, unknown, usdo
 
 Global Flags:
       --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
@@ -90,7 +104,7 @@ Global Flags:
 ```text
 decode reads a trace (candump log, JSON Lines, pcap, pcapng, ASC, BLF or PEAK
 TRC; the format is detected from the content; "-" reads stdin) and decodes its
-frames as CANopen messages, as monitor does. Malformed CANopen messages (a
+frames as CANopen messages, as monitor does (CAN FD frames as CANopen FD). Malformed CANopen messages (a
 wrong length, say) are shown with the problem and make the exit code 1.
 
 Usage:
@@ -104,7 +118,7 @@ Flags:
   -h, --help                  help for decode
       --ignore-malformed      Exit 0 even when malformed messages were found
       --node string           Only messages of (or addressed to) these nodes: 5, 1-10,20
-      --service stringArray   Only these services (repeatable, comma-separated): emcy, heartbeat, lss, nmt, pdo, rpdo, sdo, sync, time, tpdo, unknown
+      --service stringArray   Only these services (repeatable, comma-separated): emcy, heartbeat, lss, nmt, pdo, rpdo, sdo, sync, time, tpdo, unknown, usdo
 
 Global Flags:
       --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
@@ -116,9 +130,12 @@ Global Flags:
 
 ```text
 The sdo commands are an SDO client (CiA 301): expedited, segmented and block
-transfer (--block). A device that refuses a transfer answers with an SDO abort
-code: it is printed with its meaning and ends the command with exit code 11
-(JSON: the error's "abort" object). Indices are hexadecimal (1018, 0x1018);
+transfer (--block). With --fd they are a USDO client of CANopen FD (CiA 1301)
+instead: expedited and segmented transfers in CAN FD frames, --block selecting
+bulk downloads; --client-id is canopenctl's USDO node-ID (default 127). A
+device that refuses a transfer answers with an abort code: it is printed with
+its meaning and ends the command with exit code 11 (JSON: the error's "abort"
+object; a USDO abort is reported with its SDO equivalent and "usdoCode"). Indices are hexadecimal (1018, 0x1018);
 sub-indices decimal or 0x hexadecimal.
 
 Usage:
@@ -160,7 +177,10 @@ Examples:
 Flags:
       --block              Use SDO block transfer
       --block-size int     Segments per block the client asks for in block uploads (1..127) (default 127)
+      --brs                With --fd: send CAN FD frames with bit rate switching
+      --client-id int      With --fd: node-ID of canopenctl's USDO client (its requests go out on 0x600 + it) (default 127)
       --eds string         EDS or DCF of the node: names and data types
+      --fd                 CANopen FD (CiA 1301): open the interface for CAN FD and read over USDO instead of SDO
   -h, --help               help for read
   -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
   -o, --output string      Also write the raw data to this file
@@ -196,7 +216,10 @@ Examples:
 Flags:
       --block              Use SDO block transfer
       --block-size int     Segments per block the client asks for in block uploads (1..127) (default 127)
+      --brs                With --fd: send CAN FD frames with bit rate switching
+      --client-id int      With --fd: node-ID of canopenctl's USDO client (its requests go out on 0x600 + it) (default 127)
       --eds string         EDS or DCF of the node: data types and names
+      --fd                 CANopen FD (CiA 1301): open the interface for CAN FD and write over USDO instead of SDO (--block: bulk transfer)
       --file string        Download this file's content instead of a value
   -h, --help               help for write
   -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
@@ -231,7 +254,10 @@ Examples:
 Flags:
       --block              Use SDO block transfer
       --block-size int     Segments per block the client asks for in block uploads (1..127) (default 127)
+      --brs                With --fd: send CAN FD frames with bit rate switching
+      --client-id int      With --fd: node-ID of canopenctl's USDO client (its requests go out on 0x600 + it) (default 127)
       --eds string         EDS or DCF of the node (required)
+      --fd                 CANopen FD (CiA 1301): open the interface for CAN FD and read over USDO instead of SDO
   -h, --help               help for dump
   -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
       --range string       Only objects in this index range: 6000-6FFF, or one index
@@ -262,6 +288,8 @@ Examples:
   canopenctl nmt reset-node 5 --wait -i can0 --yes
 
 Flags:
+      --brs                With --fd: send CAN FD frames with bit rate switching
+      --fd                 CANopen FD (CiA 1301): open the interface for CAN FD and send the command in a CAN FD frame (--wait: FD heartbeats)
   -h, --help               help for nmt
   -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
       --timeout duration   How long --wait waits (default 5s)
@@ -314,8 +342,10 @@ Examples:
   canopenctl heartbeat watch -i vcan0 --node 5,6 --format json
 
 Flags:
+      --brs                  With --fd: send CAN FD frames with bit rate switching
   -n, --count int            Stop after this many events (0: no limit)
       --duration duration    Stop after this time (0: until Ctrl-C)
+      --fd                   CANopen FD (CiA 1301): open the interface for CAN FD and accept CAN FD heartbeats
   -h, --help                 help for watch
   -i, --interface string     CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
       --node string          Only these nodes: 5, 1-10,20
@@ -345,6 +375,8 @@ Examples:
   canopenctl scan -i vcan0 --nodes 1-16 --format table
 
 Flags:
+      --brs                With --fd: send CAN FD frames with bit rate switching
+      --fd                 CANopen FD (CiA 1301): open the interface for CAN FD and read over USDO instead of SDO
   -h, --help               help for scan
   -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
       --nodes string       Node-IDs to scan: 1-127, 1-10,20 (default "1-127")
@@ -395,8 +427,10 @@ Examples:
   canopenctl emcy watch -i vcan0 --node 5 --count 1 --format json
 
 Flags:
+      --brs                 With --fd: send CAN FD frames with bit rate switching
   -n, --count int           Stop after this many messages (0: no limit)
       --duration duration   Stop after this time (0: until Ctrl-C)
+      --fd                  CANopen FD (CiA 1301): open the interface for CAN FD and decode 20-byte CANopen FD emergencies
   -h, --help                help for watch
   -i, --interface string    CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
       --node string         Only these nodes: 5, 1-10,20
@@ -425,10 +459,12 @@ Examples:
   canopenctl sync -i can0 --period 1ms --duration 10s --counter 16 --yes
 
 Flags:
+      --brs                 With --fd: send CAN FD frames with bit rate switching
       --cob-id string       COB-ID of the SYNC message (hexadecimal) (default "80")
   -n, --count int           Send this many messages (0: until --duration) (default 10)
       --counter int         SYNC counter overflow value: 0 (no counter) or 2..240
       --duration duration   Stop after this time (0: no limit; needed with --count 0)
+      --fd                  CANopen FD (CiA 1301): open the interface for CAN FD and send the SYNC in CAN FD frames
   -h, --help                help for sync
   -i, --interface string    CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
       --period duration     Time between two messages (at least 1ms) (default 100ms)
@@ -511,7 +547,10 @@ Examples:
   canopenctl pdo show 5 --tpdo 1 --eds io401.eds -i vcan0
 
 Flags:
+      --brs                With --fd: send CAN FD frames with bit rate switching
+      --client-id int      With --fd: node-ID of canopenctl's USDO client (its requests go out on 0x600 + it) (default 127)
       --eds string         EDS or DCF of the node: names of the mapped objects
+      --fd                 CANopen FD (CiA 1301): open the interface for CAN FD and read over USDO instead of SDO
   -h, --help               help for show
   -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
       --retries int        Repeat a transfer that timed out up to this many times (0..10)
@@ -548,10 +587,13 @@ Examples:
   canopenctl pdo map 5 --tpdo 2 --disable -i can0 --yes
 
 Flags:
+      --brs                With --fd: send CAN FD frames with bit rate switching
+      --client-id int      With --fd: node-ID of canopenctl's USDO client (its requests go out on 0x600 + it) (default 127)
       --cob-id string      CAN identifier of the PDO (hexadecimal; default: keep the node's)
       --disable            Leave the PDO invalid (COB-ID bit 31)
       --eds string         EDS or DCF of the node: check the mapping before sending
       --event-timer int    Event timer (TPDO) or deadline (RPDO) in ms (default: keep the node's)
+      --fd                 CANopen FD (CiA 1301): open the interface for CAN FD and write over USDO instead of SDO
   -h, --help               help for map
       --inhibit int        Inhibit time of a TPDO in 100 µs (default: keep the node's)
   -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
@@ -784,7 +826,10 @@ Examples:
   canopenctl dcf apply 0 node5.dcf -i can0 --yes
 
 Flags:
+      --brs                With --fd: send CAN FD frames with bit rate switching
+      --client-id int      With --fd: node-ID of canopenctl's USDO client (its requests go out on 0x600 + it) (default 127)
       --dry-run            List the entries without sending anything
+      --fd                 CANopen FD (CiA 1301): open the interface for CAN FD and write over USDO instead of SDO
   -h, --help               help for apply
   -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
       --retries int        Repeat a transfer that timed out up to this many times (0..10)
@@ -1056,6 +1101,846 @@ Global Flags:
       --slcan-bitrate int   Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's) (default 500000)
 ```
 
+## canopenctl lss
+
+```text
+The lss commands are an LSS master (CiA 305, on 0x7E5/0x7E4). Devices are
+addressed by their LSS address, the four numbers of their identity object
+0x1018 written vendor:product:revision:serial in hexadecimal
+(00000F7A:0000C0C7:00010000:00000005).
+
+An LSS slave is in the waiting or the configuration state. switch puts every
+slave in one state; select puts the slave with an address in the
+configuration state. inquire, configure and activate act on the slave(s) in
+the configuration state; given --address they select that slave first and
+switch every slave back to waiting afterwards. fastscan lists the
+unconfigured devices (node-ID 0xFF); assign-all gives each of them a
+node-ID. A device that received a node-ID applies it when it leaves the
+configuration state (reset communication) or at its next reset; store makes
+it keep it across power cycles.
+
+Every lss command transmits and changes the LSS state of devices: off virtual
+interfaces each needs --yes. An unanswered confirmed service is exit 5, a
+refusal by the device exit 12 (lss_refused).
+
+Usage:
+  canopenctl lss [command]
+
+Available Commands:
+  activate    Make the slaves in the configuration state switch to their configured bit rate
+  assign-all  Give every unconfigured device a node-ID (Fastscan, configure node-ID)
+  configure   Configure the node-ID and bit rate of the slave in the configuration state, and store them
+  fastscan    List the LSS addresses of the unconfigured devices (Fastscan)
+  identify    Ask whether a device without node-ID (or with an LSS address) is on the network
+  inquire     Read the LSS address and node-ID of the slave in the configuration state
+  select      Switch the slave with an LSS address to the configuration state (switch state selective)
+  switch      Switch every LSS slave to the waiting or the configuration state (switch state global)
+
+Flags:
+  -h, --help   help for lss
+
+Global Flags:
+      --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
+      --slcan-baud int      Serial baud rate of an slcan adapter (USB adapters ignore it) (default 115200)
+      --slcan-bitrate int   Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's) (default 500000)
+
+Use "canopenctl lss [command] --help" for more information about a command.
+```
+
+## canopenctl lss switch
+
+```text
+switch sends "switch state global" (unconfirmed): every LSS slave enters the
+waiting or the configuration state. A device whose node-ID was configured
+while it had none applies it when it is switched to waiting.
+
+Usage:
+  canopenctl lss switch <waiting|configuration> [flags]
+
+Examples:
+  canopenctl lss switch configuration -i vcan0
+  canopenctl lss switch waiting -i can0 --yes
+
+Flags:
+  -h, --help               help for switch
+  -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --retries int        Re-sends of a request without response (0..10) (default 2)
+      --timeout duration   Response timeout of a confirmed LSS service (default 1s)
+      --window duration    Listening window of each Fastscan query (default 25ms)
+      --yes                Confirm a state-changing transmission on an interface that is not virtual
+
+Global Flags:
+      --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
+      --slcan-baud int      Serial baud rate of an slcan adapter (USB adapters ignore it) (default 115200)
+      --slcan-bitrate int   Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's) (default 500000)
+```
+
+## canopenctl lss select
+
+```text
+select sends "switch state selective" with an LSS address: the slave that has
+it enters the configuration state and confirms. No answer is exit 5. Slaves
+already in the configuration state stay there; "lss switch waiting" ends
+the configuration.
+
+Usage:
+  canopenctl lss select <address> [flags]
+
+Examples:
+  canopenctl lss select 00000F7A:0000C0C7:00010000:00000005 -i vcan0
+
+Flags:
+  -h, --help               help for select
+  -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --retries int        Re-sends of a request without response (0..10) (default 2)
+      --timeout duration   Response timeout of a confirmed LSS service (default 1s)
+      --window duration    Listening window of each Fastscan query (default 25ms)
+      --yes                Confirm a state-changing transmission on an interface that is not virtual
+
+Global Flags:
+      --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
+      --slcan-baud int      Serial baud rate of an slcan adapter (USB adapters ignore it) (default 115200)
+      --slcan-bitrate int   Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's) (default 500000)
+```
+
+## canopenctl lss inquire
+
+```text
+inquire reads the four parts of the LSS address (inquire identity) and the
+active node-ID (inquire node-ID; 255 when the device has none) of the slave
+in the configuration state. Exactly one slave should be in it: select it
+first, or give --address. No answer is exit 5.
+
+Usage:
+  canopenctl lss inquire [flags]
+
+Examples:
+  canopenctl lss select 00000F7A:0000C0C7:00010000:00000005 -i vcan0 && canopenctl lss inquire -i vcan0
+  canopenctl lss inquire --address 00000F7A:0000C0C7:00010000:00000005 -i vcan0
+
+Flags:
+      --address string     Select the slave with this LSS address first (vendor:product:revision:serial)
+  -h, --help               help for inquire
+  -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --retries int        Re-sends of a request without response (0..10) (default 2)
+      --timeout duration   Response timeout of a confirmed LSS service (default 1s)
+      --window duration    Listening window of each Fastscan query (default 25ms)
+      --yes                Confirm a state-changing transmission on an interface that is not virtual
+
+Global Flags:
+      --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
+      --slcan-baud int      Serial baud rate of an slcan adapter (USB adapters ignore it) (default 115200)
+      --slcan-bitrate int   Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's) (default 500000)
+```
+
+## canopenctl lss configure
+
+```text
+configure sends, to the slave in the configuration state (or, with --address,
+to that slave, selected for it), in this order: configure node-ID
+(--node-id 1..127, or "none" to remove it), configure bit timing (--bit-rate
+in kbit/s from the CiA 301 table, or auto; it takes effect with "lss
+activate") and store configuration (--store: the device keeps both across
+power cycles). At least one is needed. A refusal is exit 12 with the
+device's error code.
+
+The new node-ID is pending: a device that had none applies it when it
+leaves the configuration state ("lss switch waiting", or at once with
+--address), a configured device at its next NMT reset.
+
+Usage:
+  canopenctl lss configure [flags]
+
+Examples:
+  canopenctl lss configure --address 00000F7A:0000C0C7:00010000:00001001 --node-id 5 --store -i vcan0
+  canopenctl lss configure --bit-rate 250 -i can0 --yes
+
+Flags:
+      --address string     Select the slave with this LSS address for the configuration (vendor:product:revision:serial)
+      --bit-rate string    Bit rate to configure in kbit/s (1000, 800, 500, 250, 125, 50, 20, 10) or auto
+  -h, --help               help for configure
+  -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --node-id string     Node-ID to configure: 1..127, or none
+      --retries int        Re-sends of a request without response (0..10) (default 2)
+      --store              Make the slave store its node-ID and bit rate
+      --timeout duration   Response timeout of a confirmed LSS service (default 1s)
+      --window duration    Listening window of each Fastscan query (default 25ms)
+      --yes                Confirm a state-changing transmission on an interface that is not virtual
+
+Global Flags:
+      --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
+      --slcan-baud int      Serial baud rate of an slcan adapter (USB adapters ignore it) (default 115200)
+      --slcan-bitrate int   Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's) (default 500000)
+```
+
+## canopenctl lss activate
+
+```text
+activate sends "activate bit timing parameters" (unconfirmed): every slave in
+the configuration state switches to the bit rate configured with "lss
+configure --bit-rate" after --delay, and stays silent for another --delay.
+canopenctl's own interface keeps its bit rate: change it yourself (ip link,
+--slcan-bitrate) within the delay.
+
+Usage:
+  canopenctl lss activate [flags]
+
+Examples:
+  canopenctl lss activate --delay 500ms -i can0 --yes
+
+Flags:
+      --delay duration     Switch delay (0..65535ms) (default 100ms)
+  -h, --help               help for activate
+  -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --retries int        Re-sends of a request without response (0..10) (default 2)
+      --timeout duration   Response timeout of a confirmed LSS service (default 1s)
+      --window duration    Listening window of each Fastscan query (default 25ms)
+      --yes                Confirm a state-changing transmission on an interface that is not virtual
+
+Global Flags:
+      --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
+      --slcan-baud int      Serial baud rate of an slcan adapter (USB adapters ignore it) (default 115200)
+      --slcan-bitrate int   Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's) (default 500000)
+```
+
+## canopenctl lss identify
+
+```text
+identify sends "identify non-configured remote slave": devices with neither an
+active nor a pending node-ID answer. With --address it sends "identify remote
+slave" instead: devices whose LSS address is --address (or in the range
+--address..--to: vendor-ID and product code equal, revision and serial
+number inclusive ranges) answer. The result says whether any device
+answered; silence is not an error.
+
+Usage:
+  canopenctl lss identify [flags]
+
+Examples:
+  canopenctl lss identify -i vcan0
+  canopenctl lss identify --address 00000F7A:0000C0C7:00010000:00000000 --to 00000F7A:0000C0C7:00010000:FFFFFFFF -i vcan0
+
+Flags:
+      --address string     Identify the devices with this LSS address (the low end with --to)
+  -h, --help               help for identify
+  -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --retries int        Re-sends of a request without response (0..10) (default 2)
+      --timeout duration   Response timeout of a confirmed LSS service (default 1s)
+      --to string          High end of the LSS address range of --address
+      --window duration    Listening window of each Fastscan query (default 25ms)
+      --yes                Confirm a state-changing transmission on an interface that is not virtual
+
+Global Flags:
+      --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
+      --slcan-baud int      Serial baud rate of an slcan adapter (USB adapters ignore it) (default 115200)
+      --slcan-bitrate int   Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's) (default 500000)
+```
+
+## canopenctl lss fastscan
+
+```text
+fastscan finds the LSS addresses of the devices without node-ID with LSS
+Fastscan, bit by bit, without selecting any. Every query costs a listening
+window (--window): a full scan of one device takes about 130 windows, fewer
+with known parts (--vendor, --product, --revision, which are then verified
+instead of scanned). Configured devices do not take part: "lss inquire" or
+"scan" find those.
+
+Usage:
+  canopenctl lss fastscan [flags]
+
+Examples:
+  canopenctl lss fastscan -i vcan0
+  canopenctl lss fastscan --vendor 0xF7A --product 0xC0C7 --window 10ms -i vcan0 --format table
+
+Flags:
+  -h, --help               help for fastscan
+  -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --max int            Stop after this many devices (0: all)
+      --product string     Only devices with this product code
+      --retries int        Re-sends of a request without response (0..10) (default 2)
+      --revision string    Only devices with this revision number
+      --timeout duration   Response timeout of a confirmed LSS service (default 1s)
+      --vendor string      Only devices with this vendor-ID (verified instead of scanned: faster)
+      --window duration    Listening window of each Fastscan query (default 25ms)
+      --yes                Confirm a state-changing transmission on an interface that is not virtual
+
+Global Flags:
+      --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
+      --slcan-baud int      Serial baud rate of an slcan adapter (USB adapters ignore it) (default 115200)
+      --slcan-bitrate int   Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's) (default 500000)
+```
+
+## canopenctl lss assign-all
+
+```text
+assign-all gives the devices without node-ID node-IDs from --first upwards,
+skipping --avoid: one by one, it selects a device with Fastscan, checks that
+it alone is in the configuration state, configures its node-ID (and makes it
+store it with --store) and switches it back to waiting, upon which the
+device applies the node-ID (reset communication) and boots. It ends when no
+unconfigured device answers. A node-ID once requested is never offered
+again, even when the device did not confirm.
+
+Node-IDs already used by configured devices are not detected: give them
+with --avoid (scan finds them). When a step fails after some devices were
+configured, the result lists them with the error and the exit code is 1.
+
+Usage:
+  canopenctl lss assign-all [flags]
+
+Examples:
+  canopenctl lss assign-all --first 10 -i vcan0
+  canopenctl lss assign-all --first 2 --avoid 1-9 --store --vendor 0xF7A -i can0 --yes
+
+Flags:
+      --avoid string       Node-IDs not to give (in use): 1-9,20
+      --first int          First node-ID to give (required)
+  -h, --help               help for assign-all
+  -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --max int            Stop after this many devices (0: all)
+      --product string     Only devices with this product code
+      --retries int        Re-sends of a request without response (0..10) (default 2)
+      --revision string    Only devices with this revision number
+      --store              Make every device store its node-ID
+      --timeout duration   Response timeout of a confirmed LSS service (default 1s)
+      --vendor string      Only devices with this vendor-ID (verified instead of scanned: faster)
+      --window duration    Listening window of each Fastscan query (default 25ms)
+      --yes                Confirm a state-changing transmission on an interface that is not virtual
+
+Global Flags:
+      --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
+      --slcan-baud int      Serial baud rate of an slcan adapter (USB adapters ignore it) (default 115200)
+      --slcan-bitrate int   Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's) (default 500000)
+```
+
+## canopenctl mpdo
+
+```text
+An MPDO carries one object per message: in destination address mode (DAM) the
+producer writes an object of a consumer (or of all), in source address mode
+(SAM) it publishes one of its own objects, listed in its object scanner list
+(0x1FA0..), which consumers map to local objects with their object
+dispatcher list (0x1FD0..). The mpdo commands configure this over SDO (or
+USDO with --fd) and watch the traffic.
+
+Usage:
+  canopenctl mpdo [command]
+
+Available Commands:
+  configure   Make a TPDO or RPDO of a node a multiplexed PDO (needs --yes off virtual interfaces)
+  dispatcher  Write the object dispatcher list of a node (needs --yes off virtual interfaces)
+  scanner     Write the object scanner list of a node (needs --yes off virtual interfaces)
+  watch       Decode the MPDOs on COB-IDs (passive)
+
+Flags:
+  -h, --help   help for mpdo
+
+Global Flags:
+      --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
+      --slcan-baud int      Serial baud rate of an slcan adapter (USB adapters ignore it) (default 115200)
+      --slcan-bitrate int   Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's) (default 500000)
+
+Use "canopenctl mpdo [command] --help" for more information about a command.
+```
+
+## canopenctl mpdo configure
+
+```text
+configure makes TPDO or RPDO n of a node an MPDO in destination (--mode dam) or
+source address mode (--mode sam), on --cob-id, event-driven (transmission
+type 254), with the CiA 301 configuration sequence (invalidate, mapping
+sub-index 0 = FEh/FFh, valid). A SAM producer also needs an object scanner
+list and its consumers an object dispatcher list ("mpdo scanner", "mpdo
+dispatcher"). The device refuses with an abort (exit 11) when it has no MPDO
+support.
+
+Usage:
+  canopenctl mpdo configure <node> [flags]
+
+Examples:
+  canopenctl mpdo configure 5 --tpdo 1 --mode dam --cob-id 0x185 -i vcan0
+  canopenctl mpdo configure 6 --rpdo 2 --mode sam --cob-id 0x285 -i can0 --yes
+
+Flags:
+      --brs                With --fd: send CAN FD frames with bit rate switching
+      --client-id int      With --fd: node-ID of canopenctl's USDO client (its requests go out on 0x600 + it) (default 127)
+      --cob-id string      COB-ID of the MPDO (hexadecimal, required)
+      --fd                 CANopen FD (CiA 1301): open the interface for CAN FD and write over USDO instead of SDO
+  -h, --help               help for configure
+      --inhibit int        Inhibit time of a TPDO in 100 µs
+  -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --mode string        Address mode: dam (destination) or sam (source) (required)
+      --retries int        Repeat a transfer that timed out up to this many times (0..10)
+      --rpdo int           Make this RPDO an MPDO consumer (1..512)
+      --timeout duration   SDO response timeout (default 1s)
+      --tpdo int           Make this TPDO an MPDO producer (1..512)
+      --yes                Confirm a state-changing transmission on an interface that is not virtual
+
+Global Flags:
+      --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
+      --slcan-baud int      Serial baud rate of an slcan adapter (USB adapters ignore it) (default 115200)
+      --slcan-bitrate int   Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's) (default 500000)
+```
+
+## canopenctl mpdo scanner
+
+```text
+scanner writes object scanner list --list (0x1FA0 + list - 1) of a node, a
+producer of SAM-MPDOs: each --entry IIII:SS[+n] allows the producer to send
+object IIII:SS (and n-1 more sub-indices) in SAM-MPDOs. The entries go to
+sub-indices 1.., then their number to sub-index 0 (skipped when the list has
+a fixed size).
+
+Usage:
+  canopenctl mpdo scanner <node> [flags]
+
+Examples:
+  canopenctl mpdo scanner 5 --list 1 --entry 2000:00 --entry 2001:01+4 -i vcan0
+
+Flags:
+      --brs                 With --fd: send CAN FD frames with bit rate switching
+      --client-id int       With --fd: node-ID of canopenctl's USDO client (its requests go out on 0x600 + it) (default 127)
+      --entry stringArray   An entry IIII:SS[+n] (repeatable, comma-separated; none clears the list)
+      --fd                  CANopen FD (CiA 1301): open the interface for CAN FD and write over USDO instead of SDO
+  -h, --help                help for scanner
+  -i, --interface string    CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --list int            List number 1..48 (default 1)
+      --retries int         Repeat a transfer that timed out up to this many times (0..10)
+      --timeout duration    SDO response timeout (default 1s)
+      --yes                 Confirm a state-changing transmission on an interface that is not virtual
+
+Global Flags:
+      --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
+      --slcan-baud int      Serial baud rate of an slcan adapter (USB adapters ignore it) (default 115200)
+      --slcan-bitrate int   Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's) (default 500000)
+```
+
+## canopenctl mpdo dispatcher
+
+```text
+dispatcher writes object dispatcher list --list (0x1FD0 + list - 1) of a node,
+a consumer of SAM-MPDOs: each --entry NODE:IIII:SS[+n]=IIII:SS maps object
+IIII:SS (and n-1 more sub-indices) of producer NODE to a local object. The
+entries go to sub-indices 1.., then their number to sub-index 0 (skipped
+when the list has a fixed size).
+
+Usage:
+  canopenctl mpdo dispatcher <node> [flags]
+
+Examples:
+  canopenctl mpdo dispatcher 6 --list 1 --entry 5:2000:00=2100:00 --entry 5:2001:01+4=2101:01 -i vcan0
+
+Flags:
+      --brs                 With --fd: send CAN FD frames with bit rate switching
+      --client-id int       With --fd: node-ID of canopenctl's USDO client (its requests go out on 0x600 + it) (default 127)
+      --entry stringArray   An entry NODE:IIII:SS[+n]=IIII:SS (repeatable, comma-separated; none clears the list)
+      --fd                  CANopen FD (CiA 1301): open the interface for CAN FD and write over USDO instead of SDO
+  -h, --help                help for dispatcher
+  -i, --interface string    CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --list int            List number 1..48 (default 1)
+      --retries int         Repeat a transfer that timed out up to this many times (0..10)
+      --timeout duration    SDO response timeout (default 1s)
+      --yes                 Confirm a state-changing transmission on an interface that is not virtual
+
+Global Flags:
+      --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
+      --slcan-baud int      Serial baud rate of an slcan adapter (USB adapters ignore it) (default 115200)
+      --slcan-bitrate int   Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's) (default 500000)
+```
+
+## canopenctl mpdo watch
+
+```text
+watch receives the frames of --cob-id (repeatable) and decodes them as MPDOs:
+the address mode, the node (DAM: the consumer, 0 for all; SAM: the
+producer), the object and its 4 data bytes. --eds names the objects. It
+never transmits. A frame shorter than 8 bytes is shown as malformed.
+
+Usage:
+  canopenctl mpdo watch --cob-id <id> [flags]
+
+Examples:
+  canopenctl mpdo watch --cob-id 0x185 --cob-id 0x285 -i vcan0
+  canopenctl mpdo watch --cob-id 0x285 --eds node5.eds --count 10 --format json -i can0
+
+Flags:
+      --cob-id stringArray   COB-ID of MPDOs to decode (hexadecimal; repeatable, comma-separated)
+  -n, --count int            Stop after this many MPDOs (0: no limit)
+      --duration duration    Stop after this time (0: until Ctrl-C)
+      --eds string           EDS or DCF naming the objects
+  -h, --help                 help for watch
+  -i, --interface string     CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+
+Global Flags:
+      --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
+      --slcan-baud int      Serial baud rate of an slcan adapter (USB adapters ignore it) (default 115200)
+      --slcan-bitrate int   Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's) (default 500000)
+```
+
+## canopenctl boot
+
+```text
+boot runs the network boot-up of CiA 302-2 as an NMT master (go-canopen's
+manager on a node of its own, --master-id): it resets the slaves (--slave,
+repeatable: a node-ID, with =FILE its configuration, a DCF or a concise
+DCF), then for each slave when its boot-up arrives: checks the identity
+(--expect NODE=vendor:product:revision:serial, hexadecimal, 0 parts not
+checked), writes the configuration (the concise DCF, in order; --store makes
+the slave save it), starts the error control and, unless --no-start, starts
+the slaves (NMT start). Slaves are mandatory unless listed in --optional:
+the boot-up waits up to --boot-time for each mandatory slave and fails
+without it; optional slaves that do not boot are reported, they do not fail
+it.
+
+--lss adds the LSS step first: the devices without node-ID are found with
+Fastscan and each is given the node-ID of the slave whose --expect identity
+it has (at least one part must be given); they then boot like the others.
+Vendor-ID, product code and revision that all --expect identities share are
+verified rather than scanned, which makes the Fastscan faster.
+
+The result lists every slave with its CiA 302 boot status (A..O, as 0x1F82
+reports them); a slave that failed makes the exit code 1.
+
+Usage:
+  canopenctl boot --slave <node>[=<config>]... [flags]
+
+Examples:
+  canopenctl boot --slave 5=node5.dcf --slave 6=node6.cdcf -i vcan0
+  canopenctl boot --lss --slave 5=node5.dcf --expect 5=F7A:C0C7:0:1001 --slave 6 --expect 6=F7A:C0C7:0:1002 -i can0 --yes
+
+Flags:
+      --boot-time duration    How long the boot-up waits for the mandatory slaves (0x1F89; 0: no limit) (default 10s)
+      --brs                   With --fd: send CAN FD frames with bit rate switching
+      --expect stringArray    Expected identity of a slave: NODE=vendor:product:revision:serial in hexadecimal, 0 not checked (repeatable)
+      --fd                    CANopen FD (CiA 1301): open the interface for CAN FD and boot a CANopen FD network (USDO from --master-id, FD NMT and heartbeats)
+  -h, --help                  help for boot
+  -i, --interface string      CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --lss                   Give unconfigured devices the node-ID of the slave whose --expect identity they have (LSS Fastscan)
+      --lss-window duration   Listening window of each Fastscan query of --lss (default 25ms)
+      --master-id int         Node-ID of canopenctl's manager node (default 127)
+      --max-time duration     Bound of the whole boot-up (default 1m0s)
+      --no-start              Leave the slaves pre-operational
+      --optional string       Slaves that are not mandatory: 5,7-9
+      --retries int           Repeat a transfer that timed out up to this many times (0..10)
+      --slave stringArray     A slave: NODE, or NODE=FILE with its DCF or concise DCF (repeatable)
+      --store                 Make each configured slave save its parameters (0x1010:01)
+      --timeout duration      SDO response timeout (default 1s)
+      --yes                   Confirm a state-changing transmission on an interface that is not virtual
+
+Global Flags:
+      --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
+      --slcan-baud int      Serial baud rate of an slcan adapter (USB adapters ignore it) (default 115200)
+      --slcan-bitrate int   Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's) (default 500000)
+```
+
+## canopenctl cdcf
+
+```text
+A concise DCF is the binary node configuration a CiA 302 manager keeps in
+0x1F22 and writes to the node at boot-up: a count, then entries of index,
+sub-index, size and data, written in their order. convert makes one from a
+DCF (with the PDO parameters in the sequence CiA 301 requires), show lists
+one, apply writes one (or a DCF) to a node.
+
+Usage:
+  canopenctl cdcf [command]
+
+Available Commands:
+  apply       Write a concise DCF (or a DCF) to a node, entry by entry (needs --yes off virtual interfaces)
+  convert     Convert a DCF into a concise DCF
+  show        List the entries of a concise DCF (or of the concise DCF of a DCF)
+
+Flags:
+  -h, --help   help for cdcf
+
+Global Flags:
+      --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
+      --slcan-baud int      Serial baud rate of an slcan adapter (USB adapters ignore it) (default 115200)
+      --slcan-bitrate int   Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's) (default 500000)
+
+Use "canopenctl cdcf [command] --help" for more information about a command.
+```
+
+## canopenctl cdcf convert
+
+```text
+convert extracts the configuration of a DCF (every writable sub-object with a
+ParameterValue, without the "refuse write on download" flag, $NODEID
+evaluated for --node-id or the DCF's node-ID) as a concise DCF, PDO
+parameters in the CiA 301 sequence (invalidate, clear the mapping, map,
+enable, make valid). --output writes it to a file (the result describes
+it); without it the binary goes to stdout.
+
+Usage:
+  canopenctl cdcf convert <dcf> [flags]
+
+Examples:
+  canopenctl cdcf convert node5.dcf -o node5.cdcf
+  canopenctl cdcf convert device.eds --node-id 5 -o node5.cdcf
+
+Flags:
+  -h, --help            help for convert
+      --node-id int     Node-ID for $NODEID (default: the DCF's)
+  -o, --output string   Write the concise DCF to this file (default: stdout)
+
+Global Flags:
+      --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
+      --slcan-baud int      Serial baud rate of an slcan adapter (USB adapters ignore it) (default 115200)
+      --slcan-bitrate int   Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's) (default 500000)
+```
+
+## canopenctl cdcf show
+
+```text
+show decodes a concise DCF and lists its entries in order (object, data);
+--eds names the objects. Given a DCF it shows the concise DCF that convert
+would write.
+
+Usage:
+  canopenctl cdcf show <file> [flags]
+
+Examples:
+  canopenctl cdcf show node5.cdcf --eds device.eds
+  canopenctl cdcf show node5.dcf --format json
+
+Flags:
+      --eds string    EDS or DCF naming the objects
+  -h, --help          help for show
+      --node-id int   Node-ID for $NODEID of a DCF (default: the DCF's)
+
+Global Flags:
+      --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
+      --slcan-baud int      Serial baud rate of an slcan adapter (USB adapters ignore it) (default 115200)
+      --slcan-bitrate int   Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's) (default 500000)
+```
+
+## canopenctl cdcf apply
+
+```text
+apply writes the entries of a concise DCF to a node one by one, in their order,
+as a CiA 302 manager does (nothing is regrouped: the file must hold the
+sequence the node needs; convert writes PDOs so). A DCF is converted first.
+The first refused entry stops it (exit 11, the abort code and object in the
+error). --dry-run lists the entries without sending anything.
+
+Usage:
+  canopenctl cdcf apply <node> <file> [flags]
+
+Examples:
+  canopenctl cdcf apply 5 node5.cdcf -i vcan0
+  canopenctl cdcf apply 5 node5.dcf --dry-run
+
+Flags:
+      --brs                With --fd: send CAN FD frames with bit rate switching
+      --client-id int      With --fd: node-ID of canopenctl's USDO client (its requests go out on 0x600 + it) (default 127)
+      --dry-run            List the entries without sending anything
+      --eds string         EDS or DCF naming the objects
+      --fd                 CANopen FD (CiA 1301): open the interface for CAN FD and write over USDO instead of SDO
+  -h, --help               help for apply
+  -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --retries int        Repeat a transfer that timed out up to this many times (0..10)
+      --timeout duration   SDO response timeout (default 1s)
+      --yes                Confirm a state-changing transmission on an interface that is not virtual
+
+Global Flags:
+      --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
+      --slcan-baud int      Serial baud rate of an slcan adapter (USB adapters ignore it) (default 115200)
+      --slcan-bitrate int   Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's) (default 500000)
+```
+
+## canopenctl store
+
+```text
+store writes the signature "save" to 0x1010 of a node: the node saves the
+current values of a parameter group (--group all, communication,
+application, manufacturer, or a sub-index) in non-volatile memory and loads
+them at its next resets. A device that cannot save refuses (exit 11).
+
+Usage:
+  canopenctl store <node> [flags]
+
+Examples:
+  canopenctl store 5 -i vcan0
+  canopenctl store 5 --group communication -i can0 --yes
+
+Flags:
+      --brs                With --fd: send CAN FD frames with bit rate switching
+      --client-id int      With --fd: node-ID of canopenctl's USDO client (its requests go out on 0x600 + it) (default 127)
+      --fd                 CANopen FD (CiA 1301): open the interface for CAN FD and write over USDO instead of SDO
+      --group string       Parameter group: all, communication, application, manufacturer, or a sub-index (default "all")
+  -h, --help               help for store
+  -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --retries int        Repeat a transfer that timed out up to this many times (0..10)
+      --timeout duration   SDO response timeout (default 1s)
+      --yes                Confirm a state-changing transmission on an interface that is not virtual
+
+Global Flags:
+      --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
+      --slcan-baud int      Serial baud rate of an slcan adapter (USB adapters ignore it) (default 115200)
+      --slcan-bitrate int   Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's) (default 500000)
+```
+
+## canopenctl restore
+
+```text
+restore writes the signature "load" to 0x1011 of a node: the node discards the
+saved values of a parameter group (--group all, communication, application,
+manufacturer, or a sub-index) and has its default values from its next
+reset on. --reset sends that reset (NMT reset node) at once.
+
+Usage:
+  canopenctl restore <node> [flags]
+
+Examples:
+  canopenctl restore 5 --reset -i vcan0
+  canopenctl restore 5 --group application -i can0 --yes
+
+Flags:
+      --brs                With --fd: send CAN FD frames with bit rate switching
+      --client-id int      With --fd: node-ID of canopenctl's USDO client (its requests go out on 0x600 + it) (default 127)
+      --fd                 CANopen FD (CiA 1301): open the interface for CAN FD and write over USDO instead of SDO
+      --group string       Parameter group: all, communication, application, manufacturer, or a sub-index (default "all")
+  -h, --help               help for restore
+  -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --reset              Reset the node (NMT reset node) so that the defaults apply now
+      --retries int        Repeat a transfer that timed out up to this many times (0..10)
+      --timeout duration   SDO response timeout (default 1s)
+      --yes                Confirm a state-changing transmission on an interface that is not virtual
+
+Global Flags:
+      --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
+      --slcan-baud int      Serial baud rate of an slcan adapter (USB adapters ignore it) (default 115200)
+      --slcan-bitrate int   Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's) (default 500000)
+```
+
+## canopenctl program
+
+```text
+The program commands use the program download objects of a device: program
+data 0x1F50 (the image), program control 0x1F51 (stop, start, reset,
+clear; the state), application software identification 0x1F56 and flash
+status 0x1F57. Program control commands are accepted in pre-operational.
+
+Usage:
+  canopenctl program [command]
+
+Available Commands:
+  control     Write a program control command to 0x1F51 (needs --yes off virtual interfaces)
+  download    Replace the program of a node (needs --yes off virtual interfaces)
+  status      Read the program state, identification and flash status of a node (SDO reads)
+
+Flags:
+  -h, --help   help for program
+
+Global Flags:
+      --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
+      --slcan-baud int      Serial baud rate of an slcan adapter (USB adapters ignore it) (default 115200)
+      --slcan-bitrate int   Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's) (default 500000)
+
+Use "canopenctl program [command] --help" for more information about a command.
+```
+
+## canopenctl program download
+
+```text
+download replaces the program of a node as a CiA 302 manager does: stop the
+program (0x1F51 = 0), clear it (3), write the image to 0x1F50 (SDO block
+transfer, segmented when the device refuses block; USDO bulk with --fd),
+poll the flash status 0x1F57 until programming ends, compare the
+application software identification 0x1F56 with --identification (or the
+CRC-32 of the file with --crc32), start the program (1) and wait until
+0x1F51 reads started. The node must be pre-operational. A flash error or a
+wrong identification is exit 12 (program_failed); --max-time bounds the
+whole download, --timeout each SDO transfer.
+
+Usage:
+  canopenctl program download <node> <file> [flags]
+
+Examples:
+  canopenctl program download 5 firmware.bin --crc32 -i vcan0
+  canopenctl program download 5 firmware.bin --identification 0x01020304 -i can0 --yes
+
+Flags:
+      --brs                     With --fd: send CAN FD frames with bit rate switching
+      --client-id int           With --fd: node-ID of canopenctl's USDO client (its requests go out on 0x600 + it) (default 127)
+      --crc32                   Expect the CRC-32 (IEEE) of the file as identification 0x1F56
+      --fd                      CANopen FD (CiA 1301): open the interface for CAN FD and use USDO instead of SDO (bulk transfer of the image)
+  -h, --help                    help for download
+      --identification string   Expected application software identification 0x1F56 after the download
+  -i, --interface string        CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --max-time duration       Bound of the whole download (default 5m0s)
+      --poll duration           Polling interval of the flash status and program control (default 100ms)
+      --program int             Program number: the sub-index of 0x1F50/0x1F51 (1..254) (default 1)
+      --retries int             Repeat a transfer that timed out up to this many times (0..10)
+      --timeout duration        SDO response timeout (default 1s)
+      --yes                     Confirm a state-changing transmission on an interface that is not virtual
+
+Global Flags:
+      --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
+      --slcan-baud int      Serial baud rate of an slcan adapter (USB adapters ignore it) (default 115200)
+      --slcan-bitrate int   Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's) (default 500000)
+```
+
+## canopenctl program control
+
+```text
+control writes a command to the program control 0x1F51 of a node: stop (0),
+start (1), reset (2) or clear (3). The device accepts them in
+pre-operational and refuses others with an abort (exit 11).
+
+Usage:
+  canopenctl program control <node> <stop|start|reset|clear> [flags]
+
+Examples:
+  canopenctl program control 5 stop -i vcan0
+
+Flags:
+      --brs                With --fd: send CAN FD frames with bit rate switching
+      --client-id int      With --fd: node-ID of canopenctl's USDO client (its requests go out on 0x600 + it) (default 127)
+      --fd                 CANopen FD (CiA 1301): open the interface for CAN FD and use USDO instead of SDO (bulk transfer of the image)
+  -h, --help               help for control
+  -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --program int        Program number: the sub-index of 0x1F50/0x1F51 (1..254) (default 1)
+      --retries int        Repeat a transfer that timed out up to this many times (0..10)
+      --timeout duration   SDO response timeout (default 1s)
+      --yes                Confirm a state-changing transmission on an interface that is not virtual
+
+Global Flags:
+      --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
+      --slcan-baud int      Serial baud rate of an slcan adapter (USB adapters ignore it) (default 115200)
+      --slcan-bitrate int   Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's) (default 500000)
+```
+
+## canopenctl program status
+
+```text
+status reads the program control 0x1F51 (the program's state), the
+application software identification 0x1F56 and the flash status 0x1F57 of a
+node. It only sends read requests.
+
+Usage:
+  canopenctl program status <node> [flags]
+
+Examples:
+  canopenctl program status 5 -i vcan0
+
+Flags:
+      --brs                With --fd: send CAN FD frames with bit rate switching
+      --client-id int      With --fd: node-ID of canopenctl's USDO client (its requests go out on 0x600 + it) (default 127)
+      --fd                 CANopen FD (CiA 1301): open the interface for CAN FD and use USDO instead of SDO (bulk transfer of the image)
+  -h, --help               help for status
+  -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --program int        Program number: the sub-index of 0x1F50/0x1F51 (1..254) (default 1)
+      --retries int        Repeat a transfer that timed out up to this many times (0..10)
+      --timeout duration   SDO response timeout (default 1s)
+
+Global Flags:
+      --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
+      --slcan-baud int      Serial baud rate of an slcan adapter (USB adapters ignore it) (default 115200)
+      --slcan-bitrate int   Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's) (default 500000)
+```
+
 ## canopenctl simulate
 
 ```text
@@ -1071,7 +1956,17 @@ mapped in RPDO1), 0x2002 (VISIBLE_STRING) and 0x2003 (DOMAIN).
 velocity, homing...). --tick increments objects every --tick-period, so that
 event-driven TPDOs carry changing data; --emcy raises an emergency
 --emcy-after the start. The node runs until --duration or Ctrl-C and prints
-its NMT state changes. It transmits like any device: on an interface that is
+its NMT state changes.
+
+--lss makes the node an LSS slave (CiA 305): without --node-id it starts
+unconfigured (node-ID 0xFF: silent until an LSS master such as "canopenctl
+lss" gives it a node-ID); --serial sets its serial number 0x1018:04 so that
+several simulated devices have distinct LSS addresses. --fd makes it a
+CANopen FD device (CiA 1301): USDO server instead of SDO, FD PDOs, EMCY,
+heartbeat. --store FILE keeps its parameters (0x1010/0x1011 and the LSS
+node-ID) in FILE across restarts; --program adds the program download
+objects 0x1F50..0x1F57 (CiA 302-3) with a program memory whose 0x1F56 is
+the CRC-32 of the image. It transmits like any device: on an interface that is
 not virtual it needs --yes. On "virtual" it shares the in-process bus with
 nothing else; use vcan0 to talk to it from another canopenctl.
 
@@ -1082,19 +1977,27 @@ Examples:
   canopenctl simulate -i vcan0 --node-id 5
   canopenctl simulate -i vcan0 --eds io401.eds --node-id 5 --tick 6000:01 --auto-start
   canopenctl simulate -i vcan0 --node-id 3 --drive
+  canopenctl simulate -i vcan0 --lss --serial 0x1001 --store node.cdcf
+  canopenctl simulate -i vcan0 --node-id 5 --fd --program
 
 Flags:
       --auto-start              Enter operational right after the boot-up (and after every reset)
+      --brs                     With --fd: send CAN FD frames with bit rate switching
       --drive                   Simulate a CiA 402 drive (adds its objects where missing)
       --drive-period duration   Simulation step of the drive (default 1ms)
       --duration duration       Stop after this time (0: until Ctrl-C)
       --eds string              EDS or DCF of the simulated device (default: a built-in device)
       --emcy string             Raise this emergency: CODE[:REG[:MSEF]] in hexadecimal (e.g. 2310, 5000:81:0102)
       --emcy-after duration     Delay of --emcy after the start
+      --fd                      CANopen FD (CiA 1301): open the interface for CAN FD and run a CANopen FD device (USDO server, FD PDOs, EMCY, heartbeat)
       --heartbeat int           Producer heartbeat time 0x1017 in ms (default: the dictionary's) (default -1)
   -h, --help                    help for simulate
   -i, --interface string        CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
-      --node-id int             Node-ID 1..127 (default: the DCF's)
+      --lss                     Make the node an LSS slave (CiA 305); without --node-id it starts unconfigured
+      --node-id int             Node-ID 1..127 (default: the DCF's; with --lss: none, the node starts unconfigured)
+      --program                 Add the program download objects 0x1F50..0x1F57 with an in-memory program
+      --serial string           Serial number 0x1018:04 (part of the LSS address; default: the dictionary's)
+      --store string            Keep the parameters (0x1010/0x1011, LSS store) in this file
       --tick stringArray        Increment this unsigned object (IIII:SS, hexadecimal) every --tick-period (repeatable)
       --tick-period duration    Period of --tick (default 100ms)
       --yes                     Confirm a state-changing transmission on an interface that is not virtual

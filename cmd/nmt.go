@@ -16,6 +16,7 @@ import (
 	"github.com/otfabric/go-canopen/master"
 	"github.com/otfabric/go-canopen/nmt"
 	"github.com/otfabric/go-canopen/sdo"
+	"github.com/otfabric/go-canopen/usdo"
 	"github.com/spf13/cobra"
 )
 
@@ -94,15 +95,18 @@ message arrives (resets); not with all.`,
 			if timeout <= 0 {
 				return errs.Invalid("--timeout %v: more than 0", timeout)
 			}
+			if err := bf.checkFD(); err != nil {
+				return err
+			}
 			if err := bf.check("nmt " + args[0]); err != nil {
 				return err
 			}
-			bus, err := openBus(bf.iface, openOpts{})
+			bus, err := bf.open(false)
 			if err != nil {
 				return err
 			}
 			defer func() { _ = bus.Close() }()
-			m, err := master.New(bus)
+			m, err := master.New(bus, bf.masterOptions()...)
 			if err != nil {
 				return err
 			}
@@ -138,6 +142,7 @@ message arrives (resets); not with all.`,
 		},
 	}
 	bf.add(c, true)
+	bf.addFD(c, "send the command in a CAN FD frame (--wait: FD heartbeats)")
 	c.Flags().BoolVar(&wait, "wait", false, "Wait for the node's heartbeat (or boot-up) to confirm")
 	c.Flags().DurationVar(&timeout, "timeout", 5*time.Second, "How long --wait waits")
 	return c
@@ -214,18 +219,25 @@ nodes; a heartbeat timeout during the watch makes the exit code 1.`,
 			for _, n := range list {
 				want[n] = true
 			}
-			bus, err := openBus(bf.iface, openOpts{passive: true})
+			if err := bf.checkFD(); err != nil {
+				return err
+			}
+			bus, err := bf.open(true)
 			if err != nil {
 				return err
 			}
 			defer func() { _ = bus.Close() }()
 			events := make(chan nmt.HeartbeatEvent, 1024)
-			hc, err := nmt.NewHeartbeatConsumer(bus, nmt.WithHeartbeatHandler(func(e nmt.HeartbeatEvent) {
+			hopts := []nmt.Option{nmt.WithHeartbeatHandler(func(e nmt.HeartbeatEvent) {
 				select {
 				case events <- e:
 				default:
 				}
-			}))
+			})}
+			if bf.fd {
+				hopts = append(hopts, nmt.WithFD(bf.brs))
+			}
+			hc, err := nmt.NewHeartbeatConsumer(bus, hopts...)
 			if err != nil {
 				return err
 			}
@@ -307,6 +319,7 @@ nodes; a heartbeat timeout during the watch makes the exit code 1.`,
 		},
 	}
 	bf.add(w, false)
+	bf.addFD(w, "accept CAN FD heartbeats")
 	w.Flags().StringVar(&nodes, "node", "", "Only these nodes: 5, 1-10,20")
 	w.Flags().DurationVar(&supervise, "supervise", 0, "Consumer heartbeat time: report a node lost after this silence (0: no supervision)")
 	w.Flags().IntVarP(&count, "count", "n", 0, "Stop after this many events (0: no limit)")
@@ -438,12 +451,19 @@ errors and makes the exit code 1.`,
 			if parallel < 1 || parallel > 127 {
 				return errs.Invalid("--parallel %d: 1..127", parallel)
 			}
-			bus, err := openBus(bf.iface, openOpts{})
+			if err := bf.checkFD(); err != nil {
+				return err
+			}
+			bus, err := bf.open(false)
 			if err != nil {
 				return err
 			}
 			defer func() { _ = bus.Close() }()
-			m, err := master.New(bus, master.WithScanOptions(sdo.WithTimeout(timeout)), master.WithScanParallelism(parallel))
+			mopts := []master.Option{master.WithScanOptions(sdo.WithTimeout(timeout)), master.WithScanParallelism(parallel)}
+			if bf.fd {
+				mopts = append(mopts, master.WithFD(bf.brs), master.WithUSDOClient(canopen.MaxNodeID, usdo.WithTimeout(timeout)))
+			}
+			m, err := master.New(bus, mopts...)
 			if err != nil {
 				return err
 			}
@@ -476,6 +496,7 @@ errors and makes the exit code 1.`,
 		},
 	}
 	bf.add(c, false)
+	bf.addFD(c, "read over USDO instead of SDO")
 	c.Flags().StringVar(&nodes, "nodes", "1-127", "Node-IDs to scan: 1-127, 1-10,20")
 	c.Flags().DurationVar(&timeout, "timeout", 100*time.Millisecond, "SDO response timeout per node")
 	c.Flags().IntVar(&parallel, "parallel", 16, "Nodes queried at once")

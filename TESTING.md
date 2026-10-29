@@ -7,7 +7,7 @@
 | `make coverage` | Whole-module coverage (`-coverpkg=./...`), gated at 90 % |
 | `make e2e` | End-to-end tests of the built binary (Linux parts need vcan0) |
 | `make interop` | The binary against the canopen-interop images (Docker, vcan0) |
-| `make fuzz` | Fuzz targets of the parsed inputs: values per data type, PDO mappings, node lists, indices/sub-indices/types/COB-IDs |
+| `make fuzz` | Fuzz targets of the parsed inputs: values per data type, PDO mappings, node lists, indices/sub-indices/types/COB-IDs, LSS addresses and MPDO list entries |
 | `make cross` | vet for every release platform, linux/arm (32-bit) included |
 | `make check` | fmt, staticcheck, golangci-lint, vet, cross, govulncheck, test, coverage |
 
@@ -15,7 +15,12 @@
 through `cmd.Run` with captured streams and check exit codes, text and JSON.
 Every command runs against go-canopen nodes on the in-process virtual bus: a
 CiA 401 I/O module from `testdata/io401.eds`, simulate's built-in device and
-a CiA 402 drive (`node.WithDrive`). Streams (monitor, watches) run while the
+a CiA 402 drive (`node.WithDrive`); for v0.2.0 also LSS slaves
+(`node.WithLSS`, unconfigured and configured, with a memory store), MPDO
+producers and consumers with scanner and dispatcher lists, devices with
+store/restore and program download (`node.WithStore`, `node.WithProgram`),
+the CiA 302 boot-up (with the LSS step) and CANopen FD nodes
+(`node.WithFD` on CAN FD ports of the virtual bus) operated over USDO. Streams (monitor, watches) run while the
 test produces traffic or events until the command's `--count` is reached. A
 command that runs into the test's 30 s limit fails the test (a stream that
 waited for nothing cannot pass silently).
@@ -44,7 +49,11 @@ simulated CiA 401 node process on vcan0 (EDS, heartbeat, ticking input, a
 delayed EMCY) operated by scan, sdo read/write/dump, nmt with `--wait`, pdo
 show/map/watch, sync and time (with a monitor process), dcf export → apply,
 reset, while heartbeat watch, emcy watch and monitor processes listen; a
-simulated CiA 402 drive process operated by cia402; and the safety refusal.
+simulated CiA 402 drive process operated by cia402; two unconfigured
+`simulate --lss` processes found by `lss fastscan` and booted by `boot
+--lss`; a `simulate --fd` process operated over USDO while `monitor --fd`
+listens (needs the CAN FD MTU 72 on vcan0, which `scripts/ci-can-modules.sh`
+sets); and the safety refusal.
 With `CANOPENCTL_BIN` set they use a prebuilt binary. To run them in a Linux
 VM without Go (for example Lima, with the repository mounted):
 

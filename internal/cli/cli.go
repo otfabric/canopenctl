@@ -21,6 +21,8 @@ import (
 	"github.com/otfabric/go-canbus/socketcan/link"
 	"github.com/otfabric/go-canopen"
 	"github.com/otfabric/go-canopen/eds"
+	"github.com/otfabric/go-canopen/lss"
+	"github.com/otfabric/go-canopen/mpdo"
 	"github.com/otfabric/go-canopen/od"
 	"github.com/otfabric/go-canopen/pdo"
 )
@@ -401,3 +403,132 @@ func Hex(v uint64, digits int) string { return fmt.Sprintf("0x%0*X", digits, v) 
 
 // Key formats an object address as "0x1018:01".
 func Key(index uint16, sub uint8) string { return fmt.Sprintf("0x%04X:%02X", index, sub) }
+
+// ParseUint32 parses an UNSIGNED32: decimal or 0x hexadecimal.
+func ParseUint32(s string) (uint32, error) {
+	v, err := parseNumber(s, 32)
+	if err != nil {
+		return 0, errs.Invalid("invalid value %q (decimal or 0x hexadecimal UNSIGNED32)", s)
+	}
+	return uint32(v), nil
+}
+
+// ParseLSSAddress parses an LSS address as vendor:product:revision:serial,
+// each part hexadecimal (0x optional), as lss.Address.String writes it.
+func ParseLSSAddress(s string) (lss.Address, error) {
+	var a lss.Address
+	parts := strings.Split(strings.TrimSpace(s), ":")
+	if len(parts) != 4 {
+		return a, errs.Invalid("invalid LSS address %q (vendor:product:revision:serial, hexadecimal)", s)
+	}
+	for i, p := range parts {
+		t := strings.TrimPrefix(strings.TrimPrefix(strings.TrimSpace(p), "0x"), "0X")
+		v, err := strconv.ParseUint(t, 16, 32)
+		if err != nil {
+			return a, errs.Invalid("invalid LSS address %q (vendor:product:revision:serial, hexadecimal)", s)
+		}
+		a.SetPart(lss.Part(i), uint32(v))
+	}
+	return a, nil
+}
+
+// parseObjectBlock parses "IIII:SS[+n]": an object, and a block size
+// (0 when not given).
+func parseObjectBlock(s string) (uint16, uint8, uint8, error) {
+	obj, n, hasN := strings.Cut(strings.TrimSpace(s), "+")
+	idx, sub, ok := strings.Cut(obj, ":")
+	if !ok {
+		return 0, 0, 0, errs.Invalid("invalid object %q (IIII:SS, hexadecimal)", s)
+	}
+	i, err := ParseIndex(idx)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	sv, err := strconv.ParseUint(strings.TrimPrefix(strings.ToLower(strings.TrimSpace(sub)), "0x"), 16, 8)
+	if err != nil {
+		return 0, 0, 0, errs.Invalid("invalid sub-index in %q (IIII:SS, hexadecimal)", s)
+	}
+	var size uint64
+	if hasN {
+		if size, err = strconv.ParseUint(strings.TrimSpace(n), 10, 8); err != nil || size == 0 {
+			return 0, 0, 0, errs.Invalid("invalid block size in %q (+1..+255)", s)
+		}
+	}
+	return i, uint8(sv), uint8(size), nil
+}
+
+// ParseScannerEntry parses an MPDO object scanner list entry:
+// "IIII:SS[+n]" (index and sub-index hexadecimal, n sub-indices from SS;
+// default 1).
+func ParseScannerEntry(s string) (mpdo.ScannerEntry, error) {
+	i, sub, n, err := parseObjectBlock(s)
+	if err != nil {
+		return mpdo.ScannerEntry{}, err
+	}
+	e := mpdo.ScannerEntry{Index: i, SubIndex: sub, BlockSize: n}
+	if i == 0 || e.Validate() != nil {
+		return e, errs.Invalid("invalid scanner entry %q: the index must not be 0 and the block must end at sub-index FF", s)
+	}
+	return e, nil
+}
+
+// ParseDispatcherEntry parses an MPDO object dispatcher list entry:
+// "NODE:IIII:SS[+n]=IIII:SS", the producer's node-ID and object (and a
+// block of n sub-indices) written to the local object.
+func ParseDispatcherEntry(s string) (mpdo.DispatcherEntry, error) {
+	var e mpdo.DispatcherEntry
+	src, dst, ok := strings.Cut(strings.TrimSpace(s), "=")
+	nodeS, obj, ok2 := strings.Cut(src, ":")
+	if !ok || !ok2 {
+		return e, errs.Invalid("invalid dispatcher entry %q (NODE:IIII:SS[+n]=IIII:SS)", s)
+	}
+	node, err := ParseNode(nodeS, false)
+	if err != nil {
+		return e, err
+	}
+	pi, ps, n, err := parseObjectBlock(obj)
+	if err != nil {
+		return e, err
+	}
+	li, ls, ln, err := parseObjectBlock(dst)
+	if err != nil {
+		return e, err
+	}
+	if ln != 0 {
+		return e, errs.Invalid("invalid dispatcher entry %q: the block size goes with the producer's object", s)
+	}
+	e = mpdo.DispatcherEntry{Producer: node, ProducerIndex: pi, ProducerSubIndex: ps, Index: li, SubIndex: ls, BlockSize: n}
+	if pi == 0 || li == 0 || e.Validate() != nil {
+		return e, errs.Invalid("invalid dispatcher entry %q: indices must not be 0 and blocks must end at sub-index FF", s)
+	}
+	return e, nil
+}
+
+// storeGroups are the sub-indices of 0x1010 and 0x1011 by name.
+var storeGroups = map[string]uint8{"all": 1, "communication": 2, "comm": 2, "application": 3, "app": 3, "manufacturer": 4}
+
+// ParseStoreGroup parses a parameter group of 0x1010/0x1011: all,
+// communication, application, manufacturer, or the sub-index 1..127.
+func ParseStoreGroup(s string) (uint8, error) {
+	if g, ok := storeGroups[strings.ToLower(strings.TrimSpace(s))]; ok {
+		return g, nil
+	}
+	v, err := parseNumber(s, 8)
+	if err != nil || v < 1 || v > 127 {
+		return 0, errs.Invalid("invalid group %q (all, communication, application, manufacturer or a sub-index 1..127)", s)
+	}
+	return uint8(v), nil
+}
+
+// ParseNodeValue parses "NODE=VALUE" (a node-ID and a file, an address...).
+func ParseNodeValue(s string) (canopen.NodeID, string, error) {
+	n, v, ok := strings.Cut(s, "=")
+	if !ok || strings.TrimSpace(v) == "" {
+		return 0, "", errs.Invalid("invalid %q (NODE=VALUE)", s)
+	}
+	node, err := ParseNode(n, false)
+	if err != nil {
+		return 0, "", err
+	}
+	return node, strings.TrimSpace(v), nil
+}

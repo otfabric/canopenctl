@@ -56,16 +56,20 @@ func formatOf(args []string) output.Format {
 	return f
 }
 
-const rootLong = `canopenctl is a command-line toolkit for CANopen (CiA 301, CiA 306 EDS/DCF,
-CiA 402 drives), built on github.com/otfabric/go-canopen and go-canbus.
+const rootLong = `canopenctl is a command-line toolkit for CANopen (CiA 301, CiA 302 network
+management, CiA 305 LSS, CiA 306 EDS/DCF, CiA 402 drives, CiA 1301 CANopen
+FD), built on github.com/otfabric/go-canopen and go-canbus.
 
-Read-only by default: monitor, decode, heartbeat watch, emcy watch and pdo
-watch never transmit; sdo read, sdo dump, scan, pdo show, dcf export and
-cia402 state only send SDO read requests. Commands that change a device or
-the network (sdo write, nmt, pdo map, dcf apply, cia402 enable/disable/
-fault-reset/quick-stop/mode/move/velocity, sync, time, simulate) need --yes on any
-interface that is not virtual (vcan, vxcan or the in-process bus
-"virtual"), and are bounded (--count, --duration, --timeout).
+Read-only by default: monitor, decode, heartbeat watch, emcy watch, pdo
+watch and mpdo watch never transmit; sdo read, sdo dump, scan, pdo show, dcf
+export, program status and cia402 state only send SDO read requests.
+Commands that change a device or the network (sdo write, nmt, pdo map, dcf
+apply, cdcf apply, cia402 enable/disable/fault-reset/quick-stop/mode/move/
+velocity, sync, time, lss, mpdo configure/scanner/dispatcher, boot, store,
+restore, program download/control, simulate) need --yes on any interface
+that is not virtual (vcan, vxcan or the in-process bus "virtual"), and are
+bounded (--count, --duration, --timeout). --fd selects CANopen FD (USDO
+instead of SDO, CAN FD frames) where a command offers it.
 
 Interfaces: a SocketCAN interface (can0, vcan0; Linux), a serial-line CAN
 adapter as slcan:<device> (slcan:/dev/ttyACM0, slcan:COM3) or
@@ -107,7 +111,8 @@ func newRoot(a *app) *cobra.Command {
 	root.AddCommand(
 		newMonitorCmd(a), newDecodeCmd(a), newSDOCmd(a), newNMTCmd(a), newHeartbeatCmd(a), newScanCmd(a),
 		newEMCYCmd(a), newSyncCmd(a), newTimeCmd(a), newPDOCmd(a), newEDSCmd(a), newDCFCmd(a),
-		newCiA402Cmd(a), newSimulateCmd(a), newVersionCmd(a), newCompletionCmd(),
+		newCiA402Cmd(a), newLSSCmd(a), newMPDOCmd(a), newBootCmd(a), newCDCFCmd(a), newStoreCmd(a, false), newStoreCmd(a, true),
+		newProgramCmd(a), newSimulateCmd(a), newVersionCmd(a), newCompletionCmd(),
 	)
 	return root
 }
