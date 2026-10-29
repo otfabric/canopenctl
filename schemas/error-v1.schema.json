@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/otfabric/canopenctl/schemas/error-v1.schema.json",
+  "title": "canopenctl error document, version 1",
+  "description": "A fatal error with --format json: one document on stdout. kind selects the exit code (docs/exitcodes.md).",
+  "type": "object",
+  "required": ["schemaVersion", "error"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {"type": "string", "pattern": "^1\\."},
+    "error": {
+      "type": "object",
+      "required": ["kind", "code", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {"enum": ["usage", "invalid_input", "transport", "timeout", "protocol", "unsupported", "safety", "permission", "abort", "device", "output", "internal"]},
+        "code": {"type": "string", "pattern": "^[a-z_]+$"},
+        "message": {"type": "string"},
+        "abort": {
+          "description": "The SDO abort of an SDO failure.",
+          "type": "object",
+          "required": ["code", "index", "subIndex", "remote"],
+          "additionalProperties": false,
+          "properties": {
+            "code": {"type": "string", "pattern": "^0x[0-9A-F]{8}$"},
+            "text": {"type": "string"},
+            "index": {"type": "integer", "minimum": 0, "maximum": 65535},
+            "subIndex": {"type": "integer", "minimum": 0, "maximum": 255},
+            "remote": {"type": "boolean"}
+          }
+        },
+        "drive": {
+          "description": "The state of a CiA 402 drive when a cia402 command failed.",
+          "type": "object",
+          "required": ["operation", "state", "statusword"],
+          "additionalProperties": false,
+          "properties": {
+            "operation": {"type": "string"},
+            "state": {"type": "string"},
+            "statusword": {"type": "string", "pattern": "^0x[0-9A-F]{4}$"},
+            "faultCode": {"type": "string", "pattern": "^0x[0-9A-F]{4}$"}
+          }
+        }
+      }
+    }
+  }
+}

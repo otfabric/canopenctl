@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/otfabric/canopenctl/schemas/record-v1.schema.json",
+  "title": "canopenctl stream record (JSON Lines), version 1",
+  "description": "One line of a streaming command with --format json: monitor and decode (message), heartbeat watch (heartbeat), emcy watch (emcy), pdo watch (pdo), simulate (ready, state) and the summary that ends each of them. See docs/json-output.md.",
+  "type": "object",
+  "required": ["schemaVersion", "type"],
+  "properties": {
+    "schemaVersion": {"type": "string", "pattern": "^1\\."},
+    "type": {"enum": ["message", "heartbeat", "emcy", "pdo", "ready", "state", "summary"]}
+  },
+  "$defs": {
+    "timestamp": {"type": "string", "pattern": "^[0-9]+\\.[0-9]{6}$"},
+    "node": {"type": "integer", "minimum": 0, "maximum": 127},
+    "hex": {"type": "string", "pattern": "^([0-9a-f]{2})*$"},
+    "nmtState": {"enum": ["initialising", "stopped", "operational", "pre-operational", "unknown"]},
+    "emcy": {
+      "type": "object",
+      "required": ["code", "codeText", "register", "registerNames", "msef"],
+      "properties": {
+        "code": {"type": "string", "pattern": "^0x[0-9A-F]{4}$"},
+        "codeText": {"type": "string"},
+        "register": {"type": "string", "pattern": "^0x[0-9A-F]{2}$"},
+        "registerNames": {"type": "array", "items": {"type": "string"}},
+        "msef": {"$ref": "#/$defs/hex"},
+        "reset": {"type": "boolean"}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"type": {"const": "message"}}},
+      "then": {
+        "required": ["id", "idHex", "extended", "remote", "len", "data", "kind", "summary"],
+        "additionalProperties": false,
+        "properties": {
+          "schemaVersion": true, "type": true,
+          "timestamp": {"$ref": "#/$defs/timestamp"},
+          "interface": {"type": "string"},
+          "id": {"type": "integer", "minimum": 0, "maximum": 536870911},
+          "idHex": {"type": "string", "pattern": "^([0-9A-F]{3}|[0-9A-F]{8})$"},
+          "extended": {"type": "boolean"},
+          "remote": {"type": "boolean"},
+          "len": {"type": "integer", "minimum": 0, "maximum": 8},
+          "data": {"$ref": "#/$defs/hex"},
+          "kind": {"enum": ["nmt", "sync", "time", "emcy", "tpdo", "rpdo", "sdo-request", "sdo-response", "heartbeat", "boot-up", "guard-request", "guard-response", "lss-master", "lss-slave", "unknown"]},
+          "node": {"$ref": "#/$defs/node"},
+          "summary": {"type": "string"},
+          "error": {"type": "string"},
+          "nmt": {"type": "object", "required": ["cs", "command", "target"]},
+          "sync": {"type": "object", "required": ["hasCounter"]},
+          "timeStamp": {"type": "object", "required": ["ms", "days", "time"]},
+          "emcy": {"$ref": "#/$defs/emcy"},
+          "pdo": {"type": "object", "required": ["number", "transmit"]},
+          "sdo": {"type": "object", "required": ["client", "cs", "command", "phase", "index", "subIndex", "hasIndex"],
+            "properties": {"phase": {"enum": ["initiate", "segment", "block", "sub-block", "end", "abort", "unknown"]}}},
+          "errorControl": {"type": "object", "required": ["state", "stateName"]},
+          "lss": {"type": "object", "required": ["cs", "command", "value"]}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"type": {"const": "heartbeat"}}},
+      "then": {
+        "required": ["timestamp", "node", "event", "state", "previous"],
+        "properties": {
+          "timestamp": {"$ref": "#/$defs/timestamp"},
+          "node": {"$ref": "#/$defs/node"},
+          "event": {"enum": ["boot-up", "state-change", "timeout", "resumed"]},
+          "state": {"$ref": "#/$defs/nmtState"},
+          "previous": {"$ref": "#/$defs/nmtState"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"type": {"const": "emcy"}}},
+      "then": {
+        "allOf": [{"$ref": "#/$defs/emcy"}],
+        "required": ["timestamp", "node", "cobId"],
+        "properties": {
+          "timestamp": {"$ref": "#/$defs/timestamp"},
+          "node": {"$ref": "#/$defs/node"},
+          "cobId": {"type": "string", "pattern": "^0x[0-9A-F]{3}$"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"type": {"const": "pdo"}}},
+      "then": {
+        "required": ["node", "kind", "pdo", "cobId", "data", "values"],
+        "properties": {
+          "timestamp": {"$ref": "#/$defs/timestamp"},
+          "node": {"$ref": "#/$defs/node"},
+          "kind": {"enum": ["tpdo", "rpdo"]},
+          "pdo": {"type": "integer", "minimum": 1, "maximum": 512},
+          "cobId": {"type": "string", "pattern": "^0x[0-9A-F]+$"},
+          "data": {"$ref": "#/$defs/hex"},
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["index", "subIndex", "key", "type", "raw", "value"],
+              "properties": {
+                "index": {"type": "integer"}, "subIndex": {"type": "integer"}, "key": {"type": "string", "pattern": "^0x[0-9A-F]{4}:[0-9A-F]{2}$"},
+                "name": {"type": "string"}, "type": {"type": "string"}, "raw": {"$ref": "#/$defs/hex"},
+                "value": {"type": ["number", "string", "boolean"]}
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"type": {"const": "ready"}}},
+      "then": {
+        "required": ["node", "state", "objects", "source", "drive"],
+        "properties": {"node": {"$ref": "#/$defs/node"}, "state": {"$ref": "#/$defs/nmtState"}, "objects": {"type": "integer"}, "source": {"type": "string"}, "drive": {"type": "boolean"}}
+      }
+    },
+    {
+      "if": {"properties": {"type": {"const": "state"}}},
+      "then": {
+        "required": ["timestamp", "node", "from", "to"],
+        "properties": {"timestamp": {"$ref": "#/$defs/timestamp"}, "node": {"$ref": "#/$defs/node"}, "from": {"$ref": "#/$defs/nmtState"}, "to": {"$ref": "#/$defs/nmtState"}, "command": {"type": "string"}}
+      }
+    }
+  ]
+}

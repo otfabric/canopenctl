@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.0",
+  "error": {
+    "kind": "abort",
+    "code": "sdo_abort",
+    "message": "canopen: SDO abort 0x06020000: object does not exist in the object dictionary (remote, object 0x5FFF:00)",
+    "abort": {
+      "code": "0x06020000",
+      "text": "object does not exist in the object dictionary",
+      "index": 24575,
+      "subIndex": 0,
+      "remote": true
+    }
+  }
+}

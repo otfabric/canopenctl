@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1.0",
+  "command": "sdo read",
+  "result": {
+    "node": 5,
+    "index": 4120,
+    "subIndex": 2,
+    "key": "0x1018:02",
+    "name": "Identity object / Product code",
+    "type": "UNSIGNED32",
+    "typeSource": "eds",
+    "size": 4,
+    "data": "10400000",
+    "value": 16400,
+    "block": false
+  }
+}

@@ -1,0 +1,103 @@
+{
+  "schemaVersion": "1.0",
+  "command": "eds show",
+  "result": {
+    "file": "testdata/io401.eds",
+    "dcf": false,
+    "description": "CiA 401 I/O module",
+    "device": {
+      "vendorName": "OT Fabric",
+      "vendorNumber": "0x00000F7A",
+      "productName": "IO-401",
+      "productNumber": "0x00004010",
+      "revisionNumber": "0x00030004",
+      "orderCode": "OTF-IO401-8",
+      "baudRates": [
+        10,
+        20,
+        50,
+        125,
+        250,
+        500,
+        1000
+      ],
+      "rxPDOs": 2,
+      "txPDOs": 2,
+      "lss": true
+    },
+    "objects": [
+      {
+        "index": 6144,
+        "subIndex": 0,
+        "key": "0x1800:00",
+        "object": "TPDO communication parameter",
+        "name": "TPDO communication parameter / Highest sub-index supported",
+        "objectType": "RECORD",
+        "type": "UNSIGNED8",
+        "access": "const",
+        "pdoMapping": false,
+        "default": "0x06"
+      },
+      {
+        "index": 6144,
+        "subIndex": 1,
+        "key": "0x1800:01",
+        "object": "TPDO communication parameter",
+        "name": "TPDO communication parameter / COB-ID used by TPDO",
+        "objectType": "RECORD",
+        "type": "UNSIGNED32",
+        "access": "rw",
+        "pdoMapping": false,
+        "default": "0x00000185"
+      },
+      {
+        "index": 6144,
+        "subIndex": 2,
+        "key": "0x1800:02",
+        "object": "TPDO communication parameter",
+        "name": "TPDO communication parameter / Transmission type",
+        "objectType": "RECORD",
+        "type": "UNSIGNED8",
+        "access": "rw",
+        "pdoMapping": false,
+        "default": "0xFE"
+      },
+      {
+        "index": 6144,
+        "subIndex": 3,
+        "key": "0x1800:03",
+        "object": "TPDO communication parameter",
+        "name": "TPDO communication parameter / Inhibit time",
+        "objectType": "RECORD",
+        "type": "UNSIGNED16",
+        "access": "rw",
+        "pdoMapping": false,
+        "default": "0x0000"
+      },
+      {
+        "index": 6144,
+        "subIndex": 5,
+        "key": "0x1800:05",
+        "object": "TPDO communication parameter",
+        "name": "TPDO communication parameter / Event timer",
+        "objectType": "RECORD",
+        "type": "UNSIGNED16",
+        "access": "rw",
+        "pdoMapping": false,
+        "default": "0x0000"
+      },
+      {
+        "index": 6144,
+        "subIndex": 6,
+        "key": "0x1800:06",
+        "object": "TPDO communication parameter",
+        "name": "TPDO communication parameter / SYNC start value",
+        "objectType": "RECORD",
+        "type": "UNSIGNED8",
+        "access": "rw",
+        "pdoMapping": false,
+        "default": "0x00"
+      }
+    ]
+  }
+}

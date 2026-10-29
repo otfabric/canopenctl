@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "1.0",
+  "command": "pdo show",
+  "result": {
+    "node": 5,
+    "pdos": [
+      {
+        "kind": "tpdo",
+        "pdo": 2,
+        "cobId": "0x285",
+        "cobIdValue": 645,
+        "valid": true,
+        "extended": false,
+        "rtrAllowed": true,
+        "active": true,
+        "transmissionType": 254,
+        "transmission": "event-driven manufacturer-specific (254)",
+        "inhibitTime": 0,
+        "eventTimer": 0,
+        "syncStart": 0,
+        "bits": 32,
+        "mapping": [
+          {
+            "index": 25601,
+            "subIndex": 1,
+            "bits": 16,
+            "key": "0x6401:01"
+          },
+          {
+            "index": 25601,
+            "subIndex": 2,
+            "bits": 16,
+            "key": "0x6401:02"
+          }
+        ]
+      }
+    ]
+  }
+}

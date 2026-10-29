@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "1.0",
+  "error": {
+    "kind": "safety",
+    "code": "confirmation_required",
+    "message": "sdo write would transmit on slcan:/dev/null, a serial-line CAN adapter: CANopen devices may move actuators. Check the network, then repeat with --yes"
+  }
+}

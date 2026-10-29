@@ -1,0 +1,9 @@
+testdata/io401.eds: IO-401 CiA 401 I/O module (vendor OT Fabric 0x00000F7A, product 0x00004010, revision 0x00030004)
+2 RPDOs, 2 TPDOs, LSS true, bit rates [10 20 50 125 250 500 1000] kbit/s
+KEY        NAME                                                        TYPE        ACCESS  PDO  DEFAULT        LIMITS
+0x1800:00  TPDO communication parameter / Highest sub-index supported  UNSIGNED8   const        0x06           
+0x1800:01  TPDO communication parameter / COB-ID used by TPDO          UNSIGNED32  rw           $NODEID+0x180  
+0x1800:02  TPDO communication parameter / Transmission type            UNSIGNED8   rw           0xFE           
+0x1800:03  TPDO communication parameter / Inhibit time                 UNSIGNED16  rw           0x0000         
+0x1800:05  TPDO communication parameter / Event timer                  UNSIGNED16  rw           0x0000         
+0x1800:06  TPDO communication parameter / SYNC start value             UNSIGNED8   rw           0x00           

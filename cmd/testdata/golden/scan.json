@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "1.0",
+  "command": "scan",
+  "result": {
+    "scanned": 3,
+    "nodes": [
+      {
+        "node": 5,
+        "deviceType": "0x000F0191",
+        "profile": "CiA 401 generic I/O",
+        "vendorId": "0x00000F7A",
+        "productCode": "0x00004010",
+        "revision": "0x00030004",
+        "serialNumber": "0x00000000",
+        "identity": {
+          "vendorId": 3962,
+          "productCode": 16400,
+          "revision": 196612,
+          "serialNumber": 0
+        }
+      }
+    ],
+    "errors": []
+  }
+}

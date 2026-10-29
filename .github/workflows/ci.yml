@@ -1,0 +1,100 @@
+name: CI
+run-name: "CI (${{ github.event_name }}) on ${{ github.ref_name }} by @${{ github.actor }}"
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  # Lint, vet and the test matrix. Without a vcan interface the Linux
+  # interface tests skip there; the vcan job runs them and uploads coverage.
+  ci:
+    uses: otfabric/.github/.github/workflows/go-ci.yml@v2
+    with:
+      codecov-name: canopenctl
+      run-codecov: false
+      go-versions: '["1.23", "1.24", "1.25", "1.26"]'
+      test-exclude-regex: "/example(s)?($|/)"
+      coverpkg: ./...
+    secrets: inherit
+
+  # The commands against simulated nodes on a real vcan interface, natively
+  # on amd64 and arm64, with the end-to-end tests of the built binary
+  # (simulated node processes operated by canopenctl processes).
+  # CANOPENCTL_REQUIRE_VCAN=1 turns a missing interface into a failure.
+  vcan:
+    name: vcan (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: amd64, runner: ubuntu-24.04 }
+          - { arch: arm64, runner: ubuntu-24.04-arm }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Load the CAN modules and create vcan0
+        run: scripts/ci-can-modules.sh vcan0
+      - name: Tests with the race detector (end-to-end included)
+        run: make test-vcan
+      - name: End-to-end tests (verbose, so that a skip shows)
+        run: CANOPENCTL_REQUIRE_VCAN=1 make e2e
+      - name: Coverage (minimum 90 %)
+        run: CANOPENCTL_REQUIRE_VCAN=1 make coverage
+      - name: Upload to Codecov
+        if: matrix.arch == 'amd64'
+        uses: codecov/codecov-action@v7
+        with:
+          use_oidc: true
+          files: coverage.out
+          name: canopenctl
+          fail_ci_if_error: false
+
+  # The commands on macOS and Windows: EDS, trace and virtual-bus commands
+  # work, SocketCAN interfaces exit 8.
+  portable:
+    name: Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: go test -count=1 ./...
+        env:
+          GOWORK: "off"
+
+  # Every release platform builds, linux/arm/v7 included (int has 32 bits).
+  cross:
+    name: Cross-compile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: make cross
+
+  fuzz:
+    name: Fuzz
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: make fuzz FUZZTIME=10s

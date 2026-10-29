@@ -1,0 +1,151 @@
+{
+  "schemaVersion": "1.0",
+  "command": "dcf apply",
+  "result": {
+    "node": 37,
+    "file": "testdata/node37.dcf",
+    "dryRun": true,
+    "entries": [
+      {
+        "index": 4116,
+        "subIndex": 0,
+        "key": "0x1014:00",
+        "name": "COB-ID EMCY",
+        "data": "a5000000"
+      },
+      {
+        "index": 4119,
+        "subIndex": 0,
+        "key": "0x1017:00",
+        "name": "Producer heartbeat time",
+        "data": "f401"
+      },
+      {
+        "index": 8192,
+        "subIndex": 0,
+        "key": "0x2000:00",
+        "name": "Filter time constant",
+        "data": "00004841"
+      },
+      {
+        "index": 8193,
+        "subIndex": 0,
+        "key": "0x2001:00",
+        "name": "Firmware image",
+        "data": ""
+      },
+      {
+        "index": 8448,
+        "subIndex": 0,
+        "key": "0x2100:00",
+        "name": "Temperature offset",
+        "data": "fdffffff"
+      },
+      {
+        "index": 6144,
+        "subIndex": 0,
+        "key": "0x1800:00",
+        "name": "TPDO communication parameter / Highest sub-index supported",
+        "data": "06"
+      },
+      {
+        "index": 6144,
+        "subIndex": 1,
+        "key": "0x1800:01",
+        "name": "TPDO communication parameter / COB-ID used by TPDO",
+        "data": "a5010000"
+      },
+      {
+        "index": 6144,
+        "subIndex": 2,
+        "key": "0x1800:02",
+        "name": "TPDO communication parameter / Transmission type",
+        "data": "fe"
+      },
+      {
+        "index": 6144,
+        "subIndex": 3,
+        "key": "0x1800:03",
+        "name": "TPDO communication parameter / Inhibit time",
+        "data": "0000"
+      },
+      {
+        "index": 6144,
+        "subIndex": 5,
+        "key": "0x1800:05",
+        "name": "TPDO communication parameter / Event timer",
+        "data": "6400"
+      },
+      {
+        "index": 6144,
+        "subIndex": 6,
+        "key": "0x1800:06",
+        "name": "TPDO communication parameter / SYNC start value",
+        "data": "00"
+      },
+      {
+        "index": 6656,
+        "subIndex": 0,
+        "key": "0x1A00:00",
+        "name": "TPDO mapping parameter / Number of mapped application objects in PDO",
+        "data": "01"
+      },
+      {
+        "index": 6656,
+        "subIndex": 1,
+        "key": "0x1A00:01",
+        "name": "TPDO mapping parameter / Application object 1",
+        "data": "08010060"
+      },
+      {
+        "index": 6656,
+        "subIndex": 2,
+        "key": "0x1A00:02",
+        "name": "TPDO mapping parameter / Application object 2",
+        "data": "08020060"
+      },
+      {
+        "index": 6656,
+        "subIndex": 3,
+        "key": "0x1A00:03",
+        "name": "TPDO mapping parameter / Application object 3",
+        "data": "00000000"
+      },
+      {
+        "index": 6656,
+        "subIndex": 4,
+        "key": "0x1A00:04",
+        "name": "TPDO mapping parameter / Application object 4",
+        "data": "00000000"
+      },
+      {
+        "index": 6656,
+        "subIndex": 5,
+        "key": "0x1A00:05",
+        "name": "TPDO mapping parameter / Application object 5",
+        "data": "00000000"
+      },
+      {
+        "index": 6656,
+        "subIndex": 6,
+        "key": "0x1A00:06",
+        "name": "TPDO mapping parameter / Application object 6",
+        "data": "00000000"
+      },
+      {
+        "index": 6656,
+        "subIndex": 7,
+        "key": "0x1A00:07",
+        "name": "TPDO mapping parameter / Application object 7",
+        "data": "00000000"
+      },
+      {
+        "index": 6656,
+        "subIndex": 8,
+        "key": "0x1A00:08",
+        "name": "TPDO mapping parameter / Application object 8",
+        "data": "00000000"
+      }
+    ]
+  }
+}
