@@ -34,13 +34,21 @@ const InteropRelease = "v0.1.0"
 // adapters are the canopen-interop images.
 var adapters = []string{"canopennode", "lely", "pythoncanopen"}
 
+// digests pin the InteropRelease images by multi-arch index digest, so a
+// re-pushed tag cannot change what the suite tests.
+var digests = map[string]string{
+	"canopennode":   "sha256:be2e965a11d9dbca0afd1344b1fec00efef396ac6e3eaf994a4b01555d7d0218",
+	"lely":          "sha256:9788a6c54bed94969371d73233e3b24a826874020a7b2e8698a47f3ad89a9e84",
+	"pythoncanopen": "sha256:9e8309b16334396318dc0789dda2ee068a57e28130e0ba3c220f46cde1f180f4",
+}
+
 func image(adapter string) string {
 	if v := os.Getenv("CANOPENCTL_INTEROP_" + strings.ToUpper(adapter) + "_IMAGE"); v != "" {
 		return v
 	}
 	tag := os.Getenv("CANOPENCTL_INTEROP_TAG")
 	if tag == "" {
-		tag = InteropRelease
+		return "ghcr.io/otfabric/canopen-interop-" + adapter + ":" + InteropRelease + "@" + digests[adapter]
 	}
 	return "ghcr.io/otfabric/canopen-interop-" + adapter + ":" + tag
 }
