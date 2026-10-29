@@ -313,11 +313,11 @@ func TestStackClient(t *testing.T) {
 	}
 }
 
-// edsDifferences are the fixtures canopenctl (go-canopen's eds.Validate)
-// rejects and a stack's checker accepts, with the reason.
+// edsDifferences are the fixtures (adapter/file) on which a stack's EDS
+// checker and canopenctl (go-canopen's eds.Validate) disagree, with the
+// reason.
 var edsDifferences = map[string]string{
-	// None since go-canopen v0.1.0: a PDO count that does not match the
-	// PDO objects is a warning there, as in lely and python canopen.
+	"lely/object-links.eds": "lely's dcf-tools reject [xxxxObjectLinks] sections (CiA 306 allows them); canopen-interop records the same difference",
 }
 
 // TestEDSCheck: each stack's EDS checker and eds validate agree on the
@@ -343,7 +343,7 @@ func TestEDSCheck(t *testing.T) {
 						t.Fatalf("eds validate exit %d: %s", r.code, r.err)
 					}
 					if ours != theirs {
-						if why, ok := edsDifferences[f]; ok && !ours && theirs {
+						if why, ok := edsDifferences[a+"/"+f]; ok {
 							knownDifference(t, why)
 							return
 						}
