@@ -85,8 +85,11 @@ func TestLSSConfigure(t *testing.T) {
 	want(t, run(t, "", append([]string{"lss", "activate", "--delay", "10ms", "--format", "json"}, v...)...), 0, `"delayMs": 10`)
 	want(t, run(t, "", append([]string{"lss", "switch", "wait"}, v...)...), 0)
 	want(t, run(t, "", append([]string{"lss", "identify", "--address", a6}, v...)...), 0, "a device in")
-	want(t, run(t, "", append([]string{"lss", "identify", "--address", lssAddr(0), "--to", lssAddr(0xFFFF)}, v...)...), 0, "a device in")
+	// Before the range query: both devices answer that one, and the
+	// answer (which carries no address) of the slower one can arrive in
+	// the next command's window.
 	want(t, run(t, "", append([]string{"lss", "identify", "--address", lssAddr(0x9999)}, v...)...), 0, "no device in")
+	want(t, run(t, "", append([]string{"lss", "identify", "--address", lssAddr(0), "--to", lssAddr(0xFFFF)}, v...)...), 0, "a device in")
 	// Nobody answers: exit 5.
 	r = run(t, "", "lss", "select", "1:2:3:4", "-i", "virtual", "--timeout", "20ms", "--retries", "0", "--format", "json")
 	want(t, r, 5, `"code": "no_response"`)
