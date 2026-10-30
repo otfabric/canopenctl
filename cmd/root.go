@@ -37,10 +37,27 @@ type app struct {
 	started bool // RunE was reached: flags parsed
 }
 
+// formatEnv returns the default of --format from the environment:
+// CANOPENCTL_FORMAT, the canonical name, or else CANOPENCTL_OUTPUT_FORMAT.
+func formatEnv() string {
+	if v := os.Getenv("CANOPENCTL_FORMAT"); v != "" {
+		return v
+	}
+	return os.Getenv("CANOPENCTL_OUTPUT_FORMAT")
+}
+
+// formatDefault is the default of --format.
+func formatDefault() string {
+	if v := formatEnv(); v != "" {
+		return v
+	}
+	return "text"
+}
+
 // formatOf reads --format before anything else, so that usage errors can
 // follow it too.
 func formatOf(args []string) output.Format {
-	v := os.Getenv("CANOPENCTL_FORMAT")
+	v := formatEnv()
 	for i, a := range args {
 		switch {
 		case a == "--format" && i+1 < len(args):
@@ -102,7 +119,7 @@ func newRoot(a *app) *cobra.Command {
 			return nil
 		},
 	}
-	root.PersistentFlags().String("format", envOr("CANOPENCTL_FORMAT", "text"), "Output format: text, json or table (env CANOPENCTL_FORMAT)")
+	root.PersistentFlags().String("format", formatDefault(), "Output format: text, json or table (env CANOPENCTL_FORMAT)")
 	_ = root.RegisterFlagCompletionFunc("format", func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
 		return []string{"text\thuman-readable", "json\tversioned JSON", "table\taligned columns"}, cobra.ShellCompDirectiveNoFileComp
 	})
@@ -115,13 +132,6 @@ func newRoot(a *app) *cobra.Command {
 		newProgramCmd(a), newSimulateCmd(a), newVersionCmd(a), newCompletionCmd(),
 	)
 	return root
-}
-
-func envOr(k, def string) string {
-	if v := os.Getenv(k); v != "" {
-		return v
-	}
-	return def
 }
 
 // emit writes a result in the selected format.
