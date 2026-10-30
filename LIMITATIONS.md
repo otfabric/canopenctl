@@ -60,3 +60,22 @@
 - **Virtual bus scope.** `-i virtual` is private to one canopenctl process:
   a `simulate -i virtual` cannot be reached by another process. Use vcan.
 - **Platforms.** SocketCAN commands exit 8 on macOS and Windows.
+- **Interop coverage** (canopen-interop v0.2.0, [TESTING.md](TESTING.md)).
+  `store`/`restore` and `program` are tested only against go-canopen
+  (in process, `simulate --store`/`--program`): no device of the
+  canopen-interop contract has 0x1010/0x1011 or 0x1F50/0x1F51 (CANopenNode's
+  device is built without storage). `--fd` is tested only against go-canopen
+  (`simulate --fd`): no open-source reference stack implements CANopen FD.
+  MPDOs are tested only with Lely (CANopenNode v4.1 and python canopen have
+  none), and a scanner list written by `mpdo scanner` is verified by SDO,
+  not by a SAM-MPDO of that device (Lely's device sends SAM-MPDOs only when
+  its application asks). Lely is the only stack boot master and concise DCF
+  generator; `cdcf convert` matches dcfgen for integer and REAL values
+  (dcfgen takes no strings) and Lely's dictionary dump for one index range.
+- **Stack behaviour seen in interop.** CANopenNode v4.1's LSS slave does
+  not answer `lss identify` (with or without `--address`): use `lss
+  fastscan`. A Lely LSS slave applies a node-ID from `lss configure` or
+  `lss assign-all` only at its next NMT reset communication: send `nmt
+  reset-comm all` afterwards (`boot --lss` does this as part of the
+  boot-up). A Lely slave answers Fastscan also when it has a node-ID, so
+  `lss fastscan` lists configured Lely devices too (`assign-all` copes).

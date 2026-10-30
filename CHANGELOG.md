@@ -3,6 +3,23 @@
 All notable changes are listed here; release notes are in
 [RELEASE.md](RELEASE.md).
 
+## v0.2.1 (2026-10-30)
+
+- go-canopen v0.3.1: the network boot-up of `boot` cancels the boot slave
+  processes that run when it starts, before its NMT reset communication (a
+  race: a slave whose boot-up arrived before the reset was being configured
+  when the reset undid its configuration, and `boot` reported it failed
+  with status K).
+- Interop scenarios for the v0.2.0 commands against canopen-interop
+  v0.2.0 (contract 1.1): `lss` against CANopenNode's and Lely's LSS slaves
+  and every stack's LSS master against `simulate --lss`; `mpdo` with Lely's
+  MPDO devices; `boot` of every stack's device, of a mixed network and with
+  `--lss`, and Lely's boot master booting `simulate`; `cdcf convert` byte
+  for byte against Lely's generators and `cdcf apply` to every device;
+  store/restore, program and `--fd` recorded as skips where no stack has
+  them. Four new known differences (LSS behaviour of CANopenNode v4.1 and
+  Lely), observed on the bus.
+
 ## v0.2.0 (2026-10-29)
 
 On go-canopen v0.3.0: LSS, MPDO, CiA 302 and CANopen FD.

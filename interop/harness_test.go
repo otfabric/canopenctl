@@ -26,7 +26,7 @@ import (
 )
 
 // InteropRelease is the canopen-interop release whose images the suite
-// runs (contract 1.0). Override the tag with CANOPENCTL_INTEROP_TAG (dev
+// runs (contract 1.1). Override the tag with CANOPENCTL_INTEROP_TAG (dev
 // for locally built images) or one image with
 // CANOPENCTL_INTEROP_<ADAPTER>_IMAGE (upper case).
 const InteropRelease = "v0.2.0"
@@ -307,6 +307,31 @@ func startContainer(t *testing.T, adapter string, args ...string) *container {
 	return c
 }
 
+// seen waits up to d for a line of the container's stdout that contains
+// every one of subs (lines already printed count).
+func (c *container) seen(d time.Duration, subs ...string) bool {
+	return waitLine(d, c.stdout, subs)
+}
+
+func waitLine(d time.Duration, out func() string, subs []string) bool {
+	deadline := time.Now().Add(d)
+	for {
+		for _, l := range strings.Split(out(), "\n") {
+			all := l != ""
+			for _, s := range subs {
+				all = all && strings.Contains(l, s)
+			}
+			if all {
+				return true
+			}
+		}
+		if time.Now().After(deadline) {
+			return false
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
 func (c *container) await(t *testing.T, s string, d time.Duration) {
 	t.Helper()
 	deadline := time.After(d)
@@ -365,9 +390,20 @@ func lastDoc(t *testing.T, s string) map[string]any {
 // adapterRun runs an adapter command to its end.
 func adapterRun(t *testing.T, adapter string, args ...string) (int, string) {
 	t.Helper()
+	return adapterRunIn(t, adapter, "", 2*time.Minute, args...)
+}
+
+// adapterRunIn runs an adapter command to its end within limit, with the
+// host directory work (when not empty) mounted read-only at /work.
+func adapterRunIn(t *testing.T, adapter, work string, limit time.Duration, args ...string) (int, string) {
+	t.Helper()
 	d := dockerCmd()
-	full := append(append([]string{}, d[1:]...), "run", "--rm", "--network", "host", image(adapter))
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	full := append(append([]string{}, d[1:]...), "run", "--rm", "--network", "host")
+	if work != "" {
+		full = append(full, "-v", work+":/work:ro")
+	}
+	full = append(full, image(adapter))
+	ctx, cancel := context.WithTimeout(context.Background(), limit)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, d[0], append(full, args...)...)
 	var o, e bytes.Buffer
@@ -403,6 +439,34 @@ func ctl(t *testing.T, args ...string) result {
 		t.Fatal(err)
 	}
 	return r
+}
+
+// resultOf is the result object of canopenctl's --format json document.
+func resultOf(t *testing.T, r result) map[string]any {
+	t.Helper()
+	var m map[string]any
+	if err := json.Unmarshal([]byte(r.out), &m); err != nil {
+		t.Fatalf("not a JSON document: %v\nstdout: %s\nstderr: %s", err, r.out, r.err)
+	}
+	res, _ := m["result"].(map[string]any)
+	return res
+}
+
+// docs are the JSON Lines documents of a stream.
+func docs(t *testing.T, s string) []map[string]any {
+	t.Helper()
+	var out []map[string]any
+	for _, l := range strings.Split(strings.TrimSpace(s), "\n") {
+		if l = strings.TrimSpace(l); l == "" {
+			continue
+		}
+		var m map[string]any
+		if err := json.Unmarshal([]byte(l), &m); err != nil {
+			t.Fatalf("not JSON: %v\n%s", err, l)
+		}
+		out = append(out, m)
+	}
+	return out
 }
 
 func want(t *testing.T, r result, code int, contains ...string) {
@@ -459,6 +523,12 @@ func startCtl(t *testing.T, args ...string) *ctlProc {
 	}()
 	t.Cleanup(func() { p.stop() })
 	return p
+}
+
+// seen waits up to d for a line of canopenctl's stdout that contains
+// every one of subs.
+func (p *ctlProc) seen(d time.Duration, subs ...string) bool {
+	return waitLine(d, p.stdout, subs)
 }
 
 func (p *ctlProc) await(t *testing.T, s string, d time.Duration) {

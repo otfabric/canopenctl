@@ -6,6 +6,54 @@ with the version bump). It computes the tag, builds the binaries for linux
 publishes the GitHub release with the section of this file that matches the
 version as its notes. Add the section before running it.
 
+## v0.2.1
+
+**Date:** 2026-10-30
+**Previous release:** v0.2.0
+
+Built on go-canopen v0.3.1 (was v0.3.0).
+
+- **`boot`**: go-canopen v0.3.1 fixes a race of the network boot-up. A
+  slave whose boot-up arrived before the manager's NMT reset communication
+  was already being configured when the reset undid its configuration, and
+  `boot` reported it failed (status K); the boot-up now cancels the running
+  boot slave processes before the reset.
+- **Interop scenarios for the v0.2.0 commands** against canopen-interop
+  v0.2.0 (contract 1.1, images pinned by digest):
+  - `lss` against CANopenNode's and Lely's LSS slaves: identify, select,
+    inquire, bit timing, configure node-ID, store, Fastscan of unconfigured
+    and configured devices, assign-all; and the LSS masters of all three
+    stacks against `simulate --lss` (inquire, configure node-ID, store kept
+    across a restart with `--store`, Fastscan, assign-all).
+  - `mpdo configure`, `dispatcher`, `scanner` on Lely devices, checked
+    with Lely's DAM- and SAM-MPDOs and by SDO; `mpdo watch` of Lely's MPDOs.
+  - `boot` of every stack's device (concise DCF, identity, start), with the
+    other product's identity (error status M, exit 1), with `--lss` for the
+    stacks' LSS slaves, and of a network with a device of every stack;
+    Lely's boot master booting `simulate`.
+  - `cdcf convert` byte for byte against Lely's dcfgen and dictionary dump;
+    `cdcf apply` to every stack's device, read back.
+  - `store`/`restore`, `program` and `--fd`: recorded skips — no device of
+    the contract has 0x1010/0x1011 or 0x1F50/0x1F51 (probed: abort
+    0x06020000), no stack implements CANopen FD.
+- Four new known differences, observed on the bus: CANopenNode v4.1's LSS
+  slave answers neither identify service; Lely's LSS slave applies a
+  configured node-ID only at NMT reset communication and answers Fastscan
+  also when configured. LIMITATIONS.md says how to work with them.
+
+Verification:
+
+- Interop on Linux 7.0 arm64 (vcan0), full suite twice with identical
+  results, the new scenarios three more times: 152 pass, 5 known
+  differences, 63 skips, 0 failures (before: 93 pass, 1 known, 17 skips).
+  Per adapter: canopennode 48/2/23, lely 62/3/8, pythoncanopen 41/0/32,
+  mixed network 1 pass.
+- `make check` (fmt, staticcheck, golangci-lint, vet, cross, govulncheck,
+  tests with the race detector, coverage 93.0 %); golangci-lint and go vet
+  with the interop build tag.
+
+---
+
 ## v0.2.0
 
 **Date:** 2026-10-29

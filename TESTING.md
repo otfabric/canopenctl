@@ -83,7 +83,89 @@ images, or `CANOPENCTL_INTEROP_<ADAPTER>_IMAGE`) on vcan0:
   CiA 402 client enabling `simulate --drive`.
 - the stacks' **EDS checkers** against `eds validate` on the fixtures.
 
-A capability an image lacks is a recorded skip, never a pass; deliberate
-differences are recorded as known differences (`CANOPENCTL_INTEROP_REPORT`
-writes the matrix). `CANOPENCTL_REQUIRE_INTEROP=1` turns a missing image or
+Contract 1.1 (canopen-interop v0.2.0) adds, for the v0.2.0 commands:
+
+- **LSS** (`lss_test.go`): `lss` against each stack's LSS slave (`device
+  --node-id 255 --serial N`; CANopenNode and Lely): identify (non-configured
+  and an address range), select (and an absent address: exit 5), inquire,
+  bit timing (the device's `bit-rate` event), configure node-ID (active
+  node-ID checked by the device's `node-id` event and by SDO 0x1018:04 of
+  the new node), inquire node-ID, store (the device ends with the stored
+  node-ID), Fastscan of an unconfigured and of a configured device, and
+  assign-all of two unconfigured devices with `--store`. Each stack's LSS
+  master (`lss --step`, all three) against `canopenctl simulate --lss`:
+  inquire, configure node-ID, store (the restarted `simulate --store`
+  comes up with the stored node-ID), Fastscan, Fastscan with only a
+  configured node (exit 3) and assign-all (CANopenNode).
+- **MPDO** (`mpdo_test.go`, Lely): `mpdo configure` of a Lely device's RPDO
+  1 as DAM consumer and as SAM consumer with `mpdo dispatcher`, checked by
+  Lely's `mpdo-send` (to the node, to another node, to all; dispatched and
+  not dispatched producers) and SDO reads; `mpdo configure` of TPDO 1 as
+  SAM producer with `mpdo scanner` (read back by SDO); `mpdo watch`
+  decoding Lely's DAM- and SAM-MPDOs.
+- **CiA 302 boot-up** (`boot_test.go`): `boot` of each stack's device (a
+  concise DCF written independently of go-canopen, `--expect`; the values
+  read back, the node operational by heartbeat), with the identity of
+  `interop-device-other-product.eds` (error status M, exit 1, not
+  started), with `--lss` for the stacks' unconfigured LSS slaves, and of
+  one network of a device of every stack plus a `simulate` node. Lely's
+  `boot` master booting `canopenctl simulate` (concise DCF of dcfgen,
+  started) and refusing the other product (error status M).
+- **Concise DCFs and the remaining CiA 302 commands** (`cdcf_test.go`):
+  `cdcf convert` byte for byte against Lely's `cdcf --generator dcfgen`
+  (seven configuration values, the DCF mounted at `/work`) and `--generator
+  objects` (0x2000..0x2004 of a DCF), `cdcf show` of Lely's file; `cdcf
+  apply` of a converted DCF to each stack's device, read back by SDO and
+  in the device's dump; `store`, `restore` and `program` on each device
+  where it has 0x1010/0x1011 and 0x1F50/0x1F51 (probed by SDO); `--fd`.
+
+A capability an image lacks is a recorded skip, never a pass — also a
+device object the contract's device lacks (probed: abort 0x06020000) and
+CANopen FD, which no image declares. Deliberate differences are recorded as
+known differences with the observation (`interop/known_test.go`,
+`edsDifferences`); any other deviation fails. `CANOPENCTL_INTEROP_REPORT`
+writes the matrix. `CANOPENCTL_REQUIRE_INTEROP=1` turns a missing image or
 interface into a failure.
+
+To run the suite in a Linux VM without Go (Lima, the repository mounted
+read-only, Docker usable through the docker group):
+
+```sh
+GOOS=linux GOARCH=arm64 go build -o bin/canopenctl-linux-arm64 .
+GOOS=linux GOARCH=arm64 go test -c -tags interop -o bin/interop.test ./interop
+limactl shell canvm -- bash -lc 'cd /tmp && sg docker -c "CANOPENCTL_REQUIRE_VCAN=1 CANOPENCTL_REQUIRE_INTEROP=1 \
+  CANOPENCTL_BIN=$HOME/…/canopenctl/bin/canopenctl-linux-arm64 CANOPENCTL_INTEROP_REPORT=/tmp/interop-report.json \
+  $HOME/…/canopenctl/bin/interop.test -test.v"'
+```
+
+### Interop results
+
+canopen-interop v0.2.0 (contract 1.1, images pinned by digest), Linux 7.0
+arm64 (Lima), vcan0, 2026-10-30; the full suite run twice with identical counts, the new scenarios three more times:
+
+| Adapter | Pass | Known difference | Skip | Fail | Before (v0.2.0 suite: pass / known / skip) |
+|---------|-----:|-----:|-----:|-----:|---|
+| canopennode | 48 | 2 | 23 | 0 | 27 / 0 / 10 |
+| lely | 62 | 3 | 8 | 0 | 33 / 1 / 3 |
+| pythoncanopen | 41 | 0 | 32 | 0 | 33 / 0 / 4 |
+| canopennode+lely+pythoncanopen (boot-network) | 1 | 0 | 0 | 0 | – |
+| **Total** | **152** | **5** | **63** | **0** | 93 / 1 / 17 |
+
+Skips are capabilities the stack (or the contract's device) lacks:
+CANopenNode has no PDO client, SYNC producer, EDS checker, CiA 402 client,
+MPDO, CiA 302 boot master or concise DCF generator; Lely no `pdo-configure`,
+`sync`, CiA 402 client or assign-all; python canopen's device no block
+transfer, TPDO, limits or LSS slave, and no MPDO, boot master or concise DCF
+generator; no device of the contract has 0x1010/0x1011 or 0x1F50/0x1F51,
+and no image declares CANopen FD.
+
+Known differences (each observed on the bus with candump, and recorded by
+canopen-interop or go-canopen's interop suite too):
+
+| Adapter | Scenario | Difference |
+|---------|----------|------------|
+| canopennode | lss-identify-non-configured | CANopenNode v4.1's LSS slave does not answer "identify non-configured remote slave" (0x4C sent three times, no 0x50 on 0x7E4) while it answers Fastscan; optional for slaves in CiA 305 |
+| canopennode | lss-identify-remote | Likewise "identify remote slave" (0x46..0x4B sent three times, no 0x4F) |
+| lely | lss-activate-on-waiting | Lely's LSS slave applies a configured node-ID only at the next NMT reset communication: no boot-up 0x728 after `lss configure --address`, a boot-up after `nmt reset-comm all` |
+| lely | lss-fastscan-configured | Lely's LSS slave answers Fastscan whatever its node-ID: `lss fastscan` lists the configured node 5 (0x4F answers on 0x7E4) |
+| lely | eds-object-links | Lely's dcf-tools reject `[xxxxObjectLinks]` sections (v0.1 suite) |
