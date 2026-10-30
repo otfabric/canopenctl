@@ -6,6 +6,7 @@ import (
 	"context"
 	"os"
 	"runtime/debug"
+	"strings"
 	"testing"
 	"time"
 )
@@ -83,5 +84,18 @@ func TestBounded(t *testing.T) {
 	cancel2()
 	if !ended(ctx2, ctx2.Err()) || ended(context.Background(), context.Canceled) {
 		t.Fatal("ended canceled")
+	}
+}
+
+// CANOPENCTL_OUTPUT_FORMAT is accepted; CANOPENCTL_FORMAT is canonical and wins.
+func TestOutputFormatEnv(t *testing.T) {
+	t.Setenv("CANOPENCTL_FORMAT", "")
+	t.Setenv("CANOPENCTL_OUTPUT_FORMAT", "json")
+	if r := run(t, "", "version"); !strings.Contains(r.out, `"schemaVersion"`) {
+		t.Fatalf("OUTPUT_FORMAT ignored: %q", r.out)
+	}
+	t.Setenv("CANOPENCTL_FORMAT", "text")
+	if r := run(t, "", "version"); strings.Contains(r.out, `"schemaVersion"`) {
+		t.Fatalf("FORMAT does not win: %q", r.out)
 	}
 }

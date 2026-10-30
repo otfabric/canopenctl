@@ -3,6 +3,12 @@
 All notable changes are listed here; release notes are in
 [RELEASE.md](RELEASE.md).
 
+## v0.3.0 (2026-10-30)
+
+Exit codes follow the organisation table: `permission` is 9 (was 7), an
+interrupted command is 130 (was 10). `CANOPENCTL_OUTPUT_FORMAT` is accepted
+besides `CANOPENCTL_FORMAT`.
+
 ## v0.2.1 (2026-10-30)
 
 - go-canopen v0.3.1: the network boot-up of `boot` cancels the boot slave

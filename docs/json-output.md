@@ -1,6 +1,6 @@
 # JSON output
 
-`--format json` (or `CANOPENCTL_FORMAT=json`) makes every command machine
+`--format json` (or `CANOPENCTL_FORMAT=json`; `CANOPENCTL_OUTPUT_FORMAT` is accepted too, `_FORMAT` wins) makes every command machine
 readable. Every document carries `"schemaVersion": "1.0"`; the major version
 changes only with an incompatible change, and fields may be added within
 1.x (ignore unknown fields). Schemas:

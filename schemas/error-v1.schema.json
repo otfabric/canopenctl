@@ -13,7 +13,7 @@
       "required": ["kind", "code", "message"],
       "additionalProperties": false,
       "properties": {
-        "kind": {"enum": ["usage", "invalid_input", "transport", "timeout", "protocol", "unsupported", "safety", "permission", "abort", "device", "output", "internal"]},
+        "kind": {"enum": ["usage", "invalid_input", "transport", "timeout", "protocol", "unsupported", "safety", "permission", "abort", "device", "output", "internal", "interrupted"]},
         "code": {"type": "string", "pattern": "^[a-z_]+$"},
         "message": {"type": "string"},
         "abort": {

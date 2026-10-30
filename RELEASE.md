@@ -6,6 +6,24 @@ with the version bump). It computes the tag, builds the binaries for linux
 publishes the GitHub release with the section of this file that matches the
 version as its notes. Add the section before running it.
 
+## v0.3.0
+
+**Date:** 2026-10-30
+**Previous release:** v0.2.1
+
+Exit codes converge on the organisation table (ADR-0006). **Scripts that test for these codes must change.**
+
+| Case | Old | New |
+|---|---|---|
+| Missing privilege (`permission`) | 7 | 9 |
+| Interrupted before a result (`code` `canceled`) | 10 (`internal`) | 130 (`interrupted`) |
+
+All other codes are unchanged, 11 (`abort`) and 12 (`device`) included. `error-v1.schema.json` adds the kind `interrupted`. Exit 7 is now reserved for a partial result, which canopenctl does not produce today.
+
+`CANOPENCTL_OUTPUT_FORMAT` is now accepted besides `CANOPENCTL_FORMAT`, which is the canonical name and wins when both are set.
+
+---
+
 ## v0.2.1
 
 **Date:** 2026-10-30

@@ -15,12 +15,12 @@ usage errors.
 | 4 | `transport` | The interface does not exist, is down, or failed while in use |
 | 5 | `timeout` | A device did not answer: an SDO or USDO response (`sdo_timeout`, with the abort canopenctl sent), `nmt --wait`, a CiA 402 step (`--step-timeout`), a confirmed LSS service (`no_response`) |
 | 6 | `protocol` | The device violated the protocol (`sdo_protocol`: wrong toggle bit, unexpected command; the abort canopenctl sent is in `abort`), or sent data that does not fit the requested data type (`data_type_mismatch`) |
-| 7 | `permission` | A privilege is missing to open the interface |
 | 8 | `unsupported` | Not available here: SocketCAN on macOS/Windows |
-| 9 | `safety` | Refused for safety: a state-changing transmission on an interface that is not virtual without `--yes` |
-| 10 | `output`, `internal` | The result could not be written, the command was interrupted before a result, or something unexpected happened |
+| 9 | `safety`, `permission` | Refused for safety: a state-changing transmission on an interface that is not virtual without `--yes`. `permission`: a privilege is missing to open the interface |
+| 10 | `output`, `internal` | The result could not be written, or something unexpected happened |
 | 11 | `abort` | **The device refused an SDO transfer**: it sent an SDO abort (or a USDO abort with `--fd`). The JSON error's `abort` object has the code (`"0x06020000"`; for USDO the SDO equivalent, and `usdoCode`), CiA 301's text, the object (`index`, `subIndex`) and `"remote": true` |
 | 12 | `device` | The device is in a state that prevents the operation: a CiA 402 drive in Fault (`drive_fault`) or not in the required state (`drive_state`; the error's `drive` object has the state, statusword and fault code), an inactive PDO (`pdo_inactive`) or MPDO (`mpdo_inactive`), an LSS slave that refused a configuration (`lss_refused`), an LSS selection that more than one device answered (`lss_conflict`), no node-ID left to assign (`no_node_id`), a failed program download (`program_failed`: flash error, wrong identification, program not started), a failed boot slave process (`boot_failed`) |
+| 130 | `interrupted` | SIGINT or SIGTERM stopped a command before it had a result (`code` `canceled`). Streams stopped that way end with 0 |
 
 `kind` selects the exit code; `code` in the JSON error is a stable, finer
 identifier:
@@ -42,7 +42,8 @@ identifier:
 | `sdo_abort` | `abort` |
 | `drive_fault`, `drive_state`, `pdo_inactive`, `identity_mismatch`, `not_producer`, `mpdo_inactive`, `lss_refused`, `lss_conflict`, `no_node_id`, `program_failed`, `boot_failed` | `device` |
 | `output_failed` | `output` |
-| `canceled`, `internal_unexpected` | `internal` |
+| `canceled` | `interrupted` |
+| `internal_unexpected` | `internal` |
 
 ## SDO abort codes
 

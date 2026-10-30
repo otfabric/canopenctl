@@ -38,6 +38,9 @@ const (
 	KindDevice       Kind = "device"
 	KindOutput       Kind = "output"
 	KindInternal     Kind = "internal"
+	// KindInterrupted is a command stopped by SIGINT or SIGTERM before it
+	// had a result.
+	KindInterrupted Kind = "interrupted"
 )
 
 // Process exit codes.
@@ -49,12 +52,13 @@ const (
 	ExitTransport    = 4
 	ExitTimeout      = 5
 	ExitProtocol     = 6
-	ExitPermission   = 7
 	ExitUnsupported  = 8
+	ExitPermission   = 9 // also a safety refusal: the organisation table has one code for both
 	ExitSafety       = 9
 	ExitInternal     = 10
-	ExitAbort        = 11 // the device refused an SDO transfer (abort code)
-	ExitDevice       = 12 // the device is in a state that prevents the operation
+	ExitAbort        = 11  // the device refused an SDO transfer (abort code)
+	ExitDevice       = 12  // the device is in a state that prevents the operation
+	ExitInterrupted  = 130 // 128 + SIGINT, as a shell reports it
 )
 
 // Stable codes for scripts (the JSON error's "code").
@@ -162,6 +166,8 @@ func ExitCode(k Kind) int {
 		return ExitUnsupported
 	case KindSafety:
 		return ExitSafety
+	case KindInterrupted:
+		return ExitInterrupted
 	case KindAbort:
 		return ExitAbort
 	case KindDevice:
@@ -228,7 +234,7 @@ func Classify(err error) *Error {
 	}
 	switch {
 	case errors.Is(err, context.Canceled):
-		return mk(KindInternal, CodeCanceled)
+		return mk(KindInterrupted, CodeCanceled)
 	case hasAbort && ae.Remote:
 		r := mk(KindAbort, CodeSDOAbort)
 		r.Abort = AbortOf(ae)
@@ -291,7 +297,7 @@ func classifyDrive(err error, de *cia402.Error) *Error {
 	var ae *canopen.AbortError
 	switch {
 	case errors.Is(err, context.Canceled):
-		r.Kind, r.Code = KindInternal, CodeCanceled
+		r.Kind, r.Code = KindInterrupted, CodeCanceled
 	case errors.As(err, &ae) && ae.Remote:
 		r.Kind, r.Code = KindAbort, CodeSDOAbort
 	case errors.Is(err, canopen.ErrTimeout) && errors.As(err, &ae):

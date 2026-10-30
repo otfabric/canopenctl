@@ -29,7 +29,7 @@ func TestClassify(t *testing.T) {
 		kind Kind
 		code string
 	}{
-		{context.Canceled, KindInternal, CodeCanceled},
+		{context.Canceled, KindInterrupted, CodeCanceled},
 		{fmt.Errorf("x: %w", context.DeadlineExceeded), KindTimeout, CodeTimeout},
 		{canbus.ErrTimeout, KindTimeout, CodeTimeout},
 		{fmt.Errorf("sdo: %w", remote), KindAbort, CodeSDOAbort},
@@ -57,7 +57,7 @@ func TestClassify(t *testing.T) {
 		{&cia402.Error{Op: "enable", Err: fmt.Errorf("x: %w", remote)}, KindAbort, CodeSDOAbort},
 		{&cia402.Error{Op: "enable", Err: fmt.Errorf("%w: %w", canopen.ErrTimeout, local)}, KindTimeout, CodeSDOTimeout},
 		{&cia402.Error{Op: "enable", Err: canopen.ErrTimeout}, KindTimeout, CodeTimeout},
-		{&cia402.Error{Op: "enable", Err: context.Canceled}, KindInternal, CodeCanceled},
+		{&cia402.Error{Op: "enable", Err: context.Canceled}, KindInterrupted, CodeCanceled},
 		{&cia402.Error{Op: "enable", Err: canbus.ErrClosed}, KindTransport, CodeIO},
 		{&usdo.AbortError{Code: usdo.FromSDO(canopen.AbortNoObject), Node: 5, Index: 0x5FFF, Remote: true}, KindAbort, CodeSDOAbort},
 		{&usdo.AbortError{Code: usdo.FromSDO(canopen.AbortGeneral), Node: 5}, KindProtocol, CodeSDOProtocol},
@@ -88,7 +88,7 @@ func TestClassify(t *testing.T) {
 		t.Fatalf("%+v", d)
 	}
 	for k, code := range map[Kind]int{KindUsage: 2, KindInvalidInput: 3, KindTransport: 4, KindTimeout: 5, KindProtocol: 6,
-		KindPermission: 7, KindUnsupported: 8, KindSafety: 9, KindOutput: 10, KindInternal: 10, KindAbort: 11, KindDevice: 12} {
+		KindPermission: 9, KindUnsupported: 8, KindSafety: 9, KindOutput: 10, KindInternal: 10, KindAbort: 11, KindDevice: 12, KindInterrupted: 130} {
 		if ExitCode(k) != code {
 			t.Errorf("%s: %d", k, ExitCode(k))
 		}
