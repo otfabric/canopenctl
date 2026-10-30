@@ -6,6 +6,17 @@ with the version bump). It computes the tag, builds the binaries for linux
 publishes the GitHub release with the section of this file that matches the
 version as its notes. Add the section before running it.
 
+## v0.3.1
+
+**Date:** 2026-10-31
+**Previous release:** v0.3.0
+
+### Dependencies
+
+- go-canopen v0.3.2: program download, scan and LSS node-ID assignment fixes (see its release notes), and go-canbus v0.7.1. No command changes.
+
+---
+
 ## v0.3.0
 
 **Date:** 2026-10-30
