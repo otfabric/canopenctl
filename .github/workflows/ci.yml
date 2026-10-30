@@ -89,6 +89,19 @@ jobs:
           go-version-file: go.mod
       - run: make cross
 
+  # govulncheck (otfabric/engineering GO-010). v1.9.0 needs Go >= 1.26 and
+  # reports stdlib findings for the toolchain it runs with: use stable.
+  vuln:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+
   fuzz:
     name: Fuzz
     runs-on: ubuntu-latest
