@@ -1,7 +1,11 @@
 # canopenctl
 
-[![CI](https://github.com/otfabric/canopenctl/actions/workflows/ci.yml/badge.svg)](https://github.com/otfabric/canopenctl/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/otfabric/canopenctl/branch/main/graph/badge.svg)](https://codecov.io/gh/otfabric/canopenctl)
+[![Go Version](https://img.shields.io/badge/Go-1.23%2B-00ADD8?style=flat&logo=go)](https://go.dev/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![CI Status](https://github.com/otfabric/canopenctl/actions/workflows/ci.yml/badge.svg)](https://github.com/otfabric/canopenctl/actions/workflows/ci.yml)
+[![Interop](https://github.com/otfabric/canopenctl/actions/workflows/interop.yml/badge.svg)](https://github.com/otfabric/canopenctl/actions/workflows/interop.yml)
+[![Code Coverage](https://codecov.io/gh/otfabric/canopenctl/graph/badge.svg)](https://codecov.io/gh/otfabric/canopenctl)
+[![Latest Release](https://img.shields.io/github/v/release/otfabric/canopenctl?label=release)](https://github.com/otfabric/canopenctl/releases)
 
 A command-line toolkit for CANopen networks: monitor and decode traffic,
 read and write object dictionaries over SDO (and USDO, CANopen FD), manage
