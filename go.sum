@@ -3,12 +3,12 @@ github.com/dlclark/regexp2 v1.11.0 h1:G/nrcoOa7ZXlpoa/91N3X7mM3r8eIlMBBJZvsz/mxK
 github.com/dlclark/regexp2 v1.11.0/go.mod h1:DHkYz0B9wPfa6wondMfaivmHpzrQ3v9q8cnmRbL6yW8=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
-github.com/otfabric/go-canbus v0.7.0 h1:dyfRPFJjbyF57xjQNAnetIqNYZUizr9GRCcghrdB8kU=
-github.com/otfabric/go-canbus v0.7.0/go.mod h1:4bWcHYb2Gwkjiw1w+f+/VfMLpors3f6cc5nWfLCb9qs=
+github.com/otfabric/go-canbus v0.7.1 h1:Tl9gGKFSQ69swvhMdJSA0vHomjhDRsb/sZgUbEP1Mjo=
+github.com/otfabric/go-canbus v0.7.1/go.mod h1:FChkQ8v7CHA395Aj1tejQJGk56gW/RTcjeORrFe+WJk=
 github.com/otfabric/go-canopen v0.3.1 h1:a0xZr7NsHSJhXf/ggkYwzojs25rlLSmk5xPshBReJKY=
 github.com/otfabric/go-canopen v0.3.1/go.mod h1:eZESyZ42Q+uzUwRvnJHqZyPnv+pCRF6ow1zm7RzJXc4=
-github.com/otfabric/go-serial v0.1.8 h1:o/Pv8kJ7ZLIys5vFmB1Ng+KpppgcEPWkPHK5xzlvxEk=
-github.com/otfabric/go-serial v0.1.8/go.mod h1:TqbYpWWg6W+IuCLs8YM2cndlMAEaTyaKyUX6Z08gtq8=
+github.com/otfabric/go-serial v0.2.0 h1:tIumMlNTy0xoTHClZJZXFcqywBz6poNegxTqYDV8MEA=
+github.com/otfabric/go-serial v0.2.0/go.mod h1:TqbYpWWg6W+IuCLs8YM2cndlMAEaTyaKyUX6Z08gtq8=
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
 github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 h1:KRzFb2m7YtdldCEkzs6KqmJw4nqEVZGK7IN2kJkjTuQ=
 github.com/santhosh-tekuri/jsonschema/v6 v6.0.2/go.mod h1:JXeL+ps8p7/KNMjDQk3TCwPpBy0wYklyWTfbkIzdIFU=
