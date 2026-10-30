@@ -5,8 +5,8 @@ github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/otfabric/go-canbus v0.7.1 h1:Tl9gGKFSQ69swvhMdJSA0vHomjhDRsb/sZgUbEP1Mjo=
 github.com/otfabric/go-canbus v0.7.1/go.mod h1:FChkQ8v7CHA395Aj1tejQJGk56gW/RTcjeORrFe+WJk=
-github.com/otfabric/go-canopen v0.3.1 h1:a0xZr7NsHSJhXf/ggkYwzojs25rlLSmk5xPshBReJKY=
-github.com/otfabric/go-canopen v0.3.1/go.mod h1:eZESyZ42Q+uzUwRvnJHqZyPnv+pCRF6ow1zm7RzJXc4=
+github.com/otfabric/go-canopen v0.3.2 h1:mpqOltMd2NSWn0dhQVbzhtg2OEPkc0DrXy9ERy2YQtA=
+github.com/otfabric/go-canopen v0.3.2/go.mod h1:s8ZIo+bYGCP9VBAzVSFJs1TgITUTUqr3Jih5XDMJzOg=
 github.com/otfabric/go-serial v0.2.0 h1:tIumMlNTy0xoTHClZJZXFcqywBz6poNegxTqYDV8MEA=
 github.com/otfabric/go-serial v0.2.0/go.mod h1:TqbYpWWg6W+IuCLs8YM2cndlMAEaTyaKyUX6Z08gtq8=
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
