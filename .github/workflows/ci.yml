@@ -15,7 +15,7 @@ jobs:
   # Lint, vet and the test matrix. Without a vcan interface the Linux
   # interface tests skip there; the vcan job runs them and uploads coverage.
   ci:
-    uses: otfabric/.github/.github/workflows/go-ci.yml@v2.1.0.1.1
+    uses: otfabric/.github/.github/workflows/go-ci.yml@v3.1.1
     with:
       run-govulncheck: true
       codecov-name: canopenctl
