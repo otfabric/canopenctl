@@ -3,7 +3,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: help all build build-all test test-vcan coverage e2e interop cover cross lint lint-ci fmt fmt-check vet vuln fuzz docs check install clean
+.PHONY: help all build build-all test test-vcan coverage e2e interop cover cross lint lint-ci fmt fmt-check vet vuln fuzz docs check install clean coverage-pkg-check
 
 help: ## This help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-14s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -19,6 +19,12 @@ COMMIT      ?= $(shell git rev-parse --short HEAD 2>/dev/null)
 BUILD_DATE  ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS     := -ldflags "-s -w -X 'main.version=$(VERSION)' -X 'main.tag=$(TAG)' -X 'main.commit=$(COMMIT)' -X 'main.buildDate=$(BUILD_DATE)'"
 COVERAGE_MIN := 90
+# Per-package floor (TEST-012), checked by coverage-pkg-check in the job that
+# has the prerequisites. Lowest package measured in CI: 92.4 % (cmd). See TESTING.md.
+COVER_PKG_MIN := 90
+# Override: package main only calls cmd.Execute. The e2e suite runs that built
+# binary, which coverage does not instrument. See TESTING.md.
+COVER_PKG_SKIP := github.com/otfabric/canopenctl
 
 GO_MOD_VERSION := $(shell sed -nE 's/^go ([0-9]+\.[0-9]+).*/\1/p' go.mod | head -n1)
 GOFMT_CI = $(shell GOTOOLCHAIN=go$(GO_MOD_VERSION).0 go env GOROOT)/bin/gofmt
@@ -56,6 +62,11 @@ interop: ## Interop tests against the canopen-interop images (Docker, vcan0); th
 	@mkdir -p $(BIN_DIR)
 	@CANOPENCTL_INTEROP_REPORT=$${CANOPENCTL_INTEROP_REPORT:-$(CURDIR)/$(BIN_DIR)/interop-report.json} go test -tags interop -p 1 -count=1 -timeout 30m -v ./interop
 
+coverage-pkg-check: coverage ## Fail when a package is below COVER_PKG_MIN (reads coverage.out)
+	@awk -v m="$(COVER_PKG_MIN)" -v skip="$(COVER_PKG_SKIP)" 'NR > 1 { n[$$1] = $$2; if ($$3 > 0) h[$$1] = 1 } \
+	END { for (k in n) { p = k; sub(/\/[^\/]*$$/, "", p); s[p] += n[k]; if (k in h) c[p] += n[k] } \
+	for (p in s) { if (p == skip) continue; v = 100 * c[p] / s[p]; printf "%s %.1f%%\n", p, v; if (v < m) { printf "  below COVER_PKG_MIN: %s: %.1f%% < %s%%\n", p, v, m; bad = 1 } } exit bad }' coverage.out
+
 cover: coverage ## Open the coverage report
 	@go tool cover -html=coverage.out
 
@@ -91,7 +102,7 @@ fuzz: ## Fuzz the structured CLI inputs (values, mappings, node lists, indices/t
 docs: ## Regenerate docs/cli.md from the --help texts
 	@scripts/gen-cli-doc.sh
 
-check: fmt-check lint lint-ci vet cross vuln test coverage ## Everything CI checks except the vcan job
+check: fmt-check lint lint-ci vet cross vuln test coverage coverage-pkg-check ## Everything CI checks except the vcan job
 
 install: build ## Install into /usr/local/bin
 	@install -m 0755 $(BIN_DIR)/$(APP_NAME) /usr/local/bin/$(APP_NAME)

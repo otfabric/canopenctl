@@ -5,11 +5,14 @@
 | `make test` | All tests with the race detector; Linux vcan tests skip (loudly) without vcan0 |
 | `make test-vcan` | The same on Linux, one package at a time, failing (not skipping) when vcan0 is missing (`CANOPENCTL_REQUIRE_VCAN=1`) |
 | `make coverage` | Whole-module coverage (`-coverpkg=./...`), gated at 90 % |
+| `make coverage-pkg-check` | Every package at least `COVER_PKG_MIN` (90 %); lowest measured in CI: 92.4 % (cmd). The vcan job runs it |
 | `make e2e` | End-to-end tests of the built binary (Linux parts need vcan0) |
 | `make interop` | The binary against the canopen-interop images (Docker, vcan0) |
 | `make fuzz` | Fuzz targets of the parsed inputs: values per data type, PDO mappings, node lists, indices/sub-indices/types/COB-IDs, LSS addresses and MPDO list entries |
 | `make cross` | vet for every release platform, linux/arm (32-bit) included |
-| `make check` | fmt, staticcheck, golangci-lint, vet, cross, govulncheck, test, coverage |
+| `make check` | fmt, staticcheck, golangci-lint, vet, cross, govulncheck, test, coverage, coverage-pkg-check |
+
+Per-package override: the root package main is not gated (`COVER_PKG_SKIP`). It only calls `cmd.Execute`; the e2e suite runs the built binary, which `go test` coverage does not instrument.
 
 **In-process command tests** (`cmd/*_test.go`) run the real command tree
 through `cmd.Run` with captured streams and check exit codes, text and JSON.
