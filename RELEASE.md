@@ -6,6 +6,18 @@ with the version bump). It computes the tag, builds the binaries for linux
 publishes the GitHub release with the section of this file that matches the
 version as its notes. Add the section before running it.
 
+## v0.3.2
+
+**Date:** 2026-10-31
+**Previous release:** v0.3.1
+
+### Changed
+
+- Policy 1.2: build output in `bin/` and `release/`, a per-package coverage floor, and more tests and CI. No change in behaviour.
+- Built on go-canbus v0.7.2, go-canopen v0.3.3, go-serial v0.2.1.
+
+---
+
 ## v0.3.1
 
 **Date:** 2026-10-31
