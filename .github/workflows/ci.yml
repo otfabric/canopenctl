@@ -51,7 +51,7 @@ jobs:
       - name: End-to-end tests (verbose, so that a skip shows)
         run: CANOPENCTL_REQUIRE_VCAN=1 make e2e
       - name: Coverage (minimum 90 %)
-        run: CANOPENCTL_REQUIRE_VCAN=1 make coverage
+        run: CANOPENCTL_REQUIRE_VCAN=1 make coverage coverage-pkg-check
       - name: Upload to Codecov
         if: matrix.arch == 'amd64'
         uses: codecov/codecov-action@v7
