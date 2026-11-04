@@ -127,6 +127,10 @@ func TestStoreRestore(t *testing.T) {
 	}
 	want(t, run(t, "", "restore", "5", "--reset", "-i", "virtual"), 0, "restores the defaults of its all parameters", "NMT reset node sent")
 	eventually(t, "defaults", func() bool { v, _ := n.Dictionary().Get(simText, 0); return string(v) == "hello" })
+	// The defaults are back once the reset ran; the SDO server stays fenced
+	// until the boot-up, which enters Pre-operational after opening it. An
+	// SDO request in between timed out (CI, race detector).
+	eventually(t, "boot-up", func() bool { return n.State() == canopen.StatePreOperational })
 	want(t, run(t, "", "restore", "5", "--group", "2", "--format", "json", "-i", "virtual"), 0, `"action": "restore"`, `"groupName": "communication"`)
 	want(t, run(t, "", "restore", "5", "--group", "0x7F", "-i", "virtual"), 11, "")
 	// A node without the objects refuses.
