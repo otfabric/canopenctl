@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/otfabric/go-canopen"
@@ -138,10 +139,5 @@ func TestLSSInvalid(t *testing.T) {
 }
 
 func contains(list []string, s string) bool {
-	for _, x := range list {
-		if x == s {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(list, s)
 }

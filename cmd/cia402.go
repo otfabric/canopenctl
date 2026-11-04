@@ -5,6 +5,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -148,7 +149,9 @@ func (d *drive) snapshot(ctx context.Context, action string) (driveState, error)
 		r.Position = &p
 	}
 	if b, err := d.client.Upload(ctx, cia402.IndexVelocityActualValue, 0); err == nil && len(b) == 4 {
-		v := int32(canopen.DecodeInt(b))
+		// INTEGER32: 4 bytes sign-extend into the int32 range, which the
+		// clamp makes visible.
+		v := int32(max(min(canopen.DecodeInt(b), math.MaxInt32), math.MinInt32))
 		r.Velocity = &v
 	}
 	if st == cia402.Fault || st == cia402.FaultReactionActive {
@@ -254,7 +257,6 @@ command with exit code 12 (or 5) and the drive's state in the error.`,
 			}},
 	}
 	for _, ac := range actions {
-		ac := ac
 		var df driveFlags
 		sc := &cobra.Command{
 			Use:   ac.use,

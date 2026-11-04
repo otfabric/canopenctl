@@ -184,11 +184,22 @@ type sdoFlags struct {
 	block     bool
 	blockSize int
 	clientID  int // USDO client node-ID (--fd)
+	maxSize   int // largest upload accepted (--max-size)
+}
+
+// uploadLimit returns --max-size, or the library default when the flags
+// were not validated (a zero value would mean no limit).
+func (s *sdoFlags) uploadLimit() int {
+	if s.maxSize < 1 || s.maxSize > maxUploadSize {
+		return sdo.DefaultMaxSize
+	}
+	return s.maxSize
 }
 
 func (s *sdoFlags) add(c *cobra.Command, block bool) {
 	c.Flags().DurationVar(&s.timeout, "timeout", sdo.DefaultTimeout, "SDO response timeout")
-	c.Flags().IntVar(&s.retries, "retries", 0, "Repeat a transfer that timed out up to this many times (0..10)")
+	c.Flags().IntVar(&s.retries, "retries", 0, "Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)")
+	c.Flags().IntVar(&s.maxSize, "max-size", sdo.DefaultMaxSize, "Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO)")
 	if block {
 		c.Flags().BoolVar(&s.block, "block", false, "Use SDO block transfer")
 		c.Flags().IntVar(&s.blockSize, "block-size", sdo.MaxBlockSize, "Segments per block the client asks for in block uploads (1..127)")
@@ -210,15 +221,30 @@ func (s *sdoFlags) validate() error {
 	if s.blockSize != 0 && (s.blockSize < 1 || s.blockSize > sdo.MaxBlockSize) {
 		return errs.Invalid("--block-size %d: 1..127", s.blockSize)
 	}
-	if s.clientID != 0 && !canopen.NodeID(s.clientID).Valid() {
+	if _, ok := cli.NodeIDOf(s.clientID); s.clientID != 0 && !ok {
 		return errs.Invalid("--client-id %d: 1..127", s.clientID)
+	}
+	if s.maxSize < 1 || s.maxSize > maxUploadSize {
+		return errs.Invalid("--max-size %d: 1..%d bytes", s.maxSize, maxUploadSize)
 	}
 	return nil
 }
 
+// maxUploadSize bounds --max-size: canopenctl holds an upload in memory.
+const maxUploadSize = 1 << 30
+
+// client returns the node-ID of canopenctl's USDO client: --client-id,
+// or 127 when it is not a node-ID.
+func (s *sdoFlags) client() canopen.NodeID {
+	if id, ok := cli.NodeIDOf(s.clientID); ok {
+		return id
+	}
+	return canopen.MaxNodeID
+}
+
 // usdoOptions returns the USDO client options of the flags.
 func (s *sdoFlags) usdoOptions(brs bool) []usdo.Option {
-	return []usdo.Option{usdo.WithTimeout(s.timeout), usdo.WithBRS(brs)}
+	return []usdo.Option{usdo.WithTimeout(s.timeout), usdo.WithBRS(brs), usdo.WithMaxSize(s.uploadLimit())}
 }
 
 // masterOptions returns the master options of the SDO and bus flags: the
@@ -226,10 +252,7 @@ func (s *sdoFlags) usdoOptions(brs bool) []usdo.Option {
 func (s *sdoFlags) masterOptions(b *busFlags) []master.Option {
 	opts := []master.Option{master.WithSDOOptions(s.options()...)}
 	if b.fd {
-		id := canopen.NodeID(s.clientID)
-		if !id.Valid() {
-			id = canopen.MaxNodeID
-		}
+		id := s.client()
 		opts = append(opts, master.WithFD(b.brs), master.WithUSDOClient(id, s.usdoOptions(b.brs)...))
 	}
 	return opts
@@ -246,14 +269,66 @@ type remote interface {
 	Close() error
 }
 
-type sdoRemote struct{ c *sdo.Client }
+type sdoRemote struct {
+	c       *sdo.Client
+	retries int           // repeats of a transfer that broke (the client repeats timeouts)
+	settle  time.Duration // quiet time before a repeat
+}
+
+// transferBroken reports an SDO abort, sent by either side, that says the
+// transfer itself broke rather than that the device refused the access:
+// a lost, duplicated or reordered frame. The object was not transferred,
+// so the transfer can be repeated as after a timeout.
+func transferBroken(err error) bool {
+	var ae *canopen.AbortError
+	if !errors.As(err, &ae) {
+		return false
+	}
+	switch ae.Code {
+	case canopen.AbortToggle, canopen.AbortCommand, canopen.AbortBlockSize, canopen.AbortSequence, canopen.AbortCRC:
+		return true
+	default: // the device's answer about the object
+	}
+	return false
+}
+
+// repeat runs f again, up to r.retries times, while it fails with a
+// broken transfer. It first waits r.settle (the SDO timeout): frames of
+// the broken transfer still in flight must arrive and be discarded before
+// the next transfer starts. A segment's toggle bit is one bit, so a stale
+// segment that came during the repeat could be taken as one of its own
+// (found by TestMonkeySDO: a read reported another segment's data).
+func (r sdoRemote) repeat(ctx context.Context, f func() error) error {
+	var err error
+	for i := 0; i <= r.retries; i++ {
+		if i > 0 {
+			t := time.NewTimer(r.settle)
+			select {
+			case <-t.C:
+			case <-ctx.Done():
+				t.Stop()
+				return err
+			}
+		}
+		if err = f(); !transferBroken(err) || ctx.Err() != nil {
+			return err
+		}
+	}
+	return err
+}
 
 func (r sdoRemote) Upload(ctx context.Context, index uint16, sub uint8) ([]byte, error) {
-	return r.c.Upload(ctx, index, sub)
+	var b []byte
+	err := r.repeat(ctx, func() error {
+		var err error
+		b, err = r.c.Upload(ctx, index, sub)
+		return err
+	})
+	return b, err
 }
 
 func (r sdoRemote) Download(ctx context.Context, index uint16, sub uint8, data []byte) error {
-	return r.c.Download(ctx, index, sub, data)
+	return r.repeat(ctx, func() error { return r.c.Download(ctx, index, sub, data) })
 }
 
 func (r sdoRemote) blocked() bool { return r.c.Stats().BlockTransfers > 0 }
@@ -301,12 +376,9 @@ func newRemote(bus canopen.Bus, node canopen.NodeID, s *sdoFlags, b *busFlags) (
 		if err != nil {
 			return nil, err
 		}
-		return sdoRemote{c}, nil
+		return sdoRemote{c: c, retries: s.retries, settle: s.timeout}, nil
 	}
-	id := canopen.NodeID(s.clientID)
-	if !id.Valid() {
-		id = canopen.MaxNodeID
-	}
+	id := s.client()
 	c, err := usdo.NewClient(bus, id, s.usdoOptions(b.brs)...)
 	if err != nil {
 		return nil, err
@@ -318,7 +390,7 @@ func newRemote(bus canopen.Bus, node canopen.NodeID, s *sdoFlags, b *busFlags) (
 }
 
 func (s *sdoFlags) options() []sdo.ClientOption {
-	opts := []sdo.ClientOption{sdo.WithTimeout(s.timeout), sdo.WithRetries(s.retries)}
+	opts := []sdo.ClientOption{sdo.WithTimeout(s.timeout), sdo.WithRetries(s.retries), sdo.WithMaxSize(s.uploadLimit())}
 	if s.block {
 		opts = append(opts, sdo.WithBlockMode(sdo.BlockAlways))
 	}

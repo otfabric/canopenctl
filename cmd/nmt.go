@@ -480,7 +480,7 @@ errors and makes the exit code 1.`,
 					Revision: cli.Hex(uint64(id.Revision), 8), SerialNumber: cli.Hex(uint64(id.SerialNumber), 8), Identity: id})
 			}
 			if scanErr != nil {
-				for _, l := range strings.Split(scanErr.Error(), "\n") {
+				for l := range strings.SplitSeq(scanErr.Error(), "\n") {
 					if l = strings.TrimSpace(l); l != "" {
 						r.Errors = append(r.Errors, l)
 					}

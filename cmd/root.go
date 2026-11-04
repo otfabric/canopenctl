@@ -168,8 +168,7 @@ func Run(ctx context.Context, args []string, in io.Reader, out, errOut io.Writer
 	var e *errs.Error
 	if !a.started || isUsage(err) {
 		e = &errs.Error{Kind: errs.KindUsage, Code: errs.CodeInvalidInput, Message: err.Error(), Cause: err}
-		var typed *errs.Error
-		if errors.As(err, &typed) {
+		if typed, ok := errors.AsType[*errs.Error](err); ok {
 			e = typed
 		}
 	} else {
@@ -193,8 +192,7 @@ func Run(ctx context.Context, args []string, in io.Reader, out, errOut io.Writer
 // can also arrive after flags were parsed (required flags are checked
 // late).
 func isUsage(err error) bool {
-	var typed *errs.Error
-	if errors.As(err, &typed) {
+	if _, ok := errors.AsType[*errs.Error](err); ok {
 		return false
 	}
 	msg := err.Error()

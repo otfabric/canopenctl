@@ -292,7 +292,7 @@ func (a *app) writeOut(command, path string, content []byte, r fileResult) error
 		}
 		return nil
 	}
-	if err := os.WriteFile(path, content, 0o644); err != nil {
+	if err := os.WriteFile(path, content, 0o600); err != nil {
 		return errs.New(errs.KindOutput, errs.CodeOutputFailed, "write %s: %w", path, err)
 	}
 	sum := sha256.Sum256(content)
@@ -303,7 +303,22 @@ func (a *app) writeOut(command, path string, content []byte, r fileResult) error
 // toDCF turns an EDS (or DCF) into the DCF of a node: commissioning
 // section, and every sub-object's value as ParameterValue with $NODEID
 // evaluated.
-func toDCF(f *eds.File, input, output string, node canopen.NodeID, nodeName string, baud int) {
+// baudOf checks --baud: 0 (not set) or 10..1000 kbit/s. 1..9 were
+// accepted although the help says 10..1000.
+func baudOf(baud int) (uint16, error) {
+	if baud == 0 {
+		return 0, nil
+	}
+	if baud < 10 {
+		return 0, errs.Invalid("--baud %d: kbit/s, 10..1000", baud)
+	}
+	if baud > 1000 {
+		return 0, errs.Invalid("--baud %d: kbit/s, 10..1000", baud)
+	}
+	return uint16(baud), nil
+}
+
+func toDCF(f *eds.File, input, output string, node canopen.NodeID, nodeName string, baud uint16) {
 	if f.DeviceComissioning == nil {
 		f.DeviceComissioning = &eds.DeviceComissioning{}
 	}
@@ -313,7 +328,7 @@ func toDCF(f *eds.File, input, output string, node canopen.NodeID, nodeName stri
 		dc.NodeName = nodeName
 	}
 	if baud > 0 {
-		dc.Baudrate = uint16(baud)
+		dc.Baudrate = baud
 	}
 	if !f.IsDCF() || f.FileInfo.LastEDS == "" {
 		f.FileInfo.LastEDS = filepath.Base(input)
@@ -399,10 +414,11 @@ kept); without --output it goes to stdout.`,
 				if nid, err = cli.ParseNode(strconv.Itoa(node), false); err != nil {
 					return errs.Invalid("--node-id %d: a DCF needs the node-ID (1..127)", node)
 				}
-				if baud < 0 || baud > 1000 {
-					return errs.Invalid("--baud %d: kbit/s, 10..1000", baud)
+				kbit, err := baudOf(baud)
+				if err != nil {
+					return err
 				}
-				toDCF(f, args[0], out, nid, nodeName, baud)
+				toDCF(f, args[0], out, nid, nodeName, kbit)
 			} else {
 				toEDS(f, out)
 			}
@@ -442,7 +458,7 @@ SHA-256. The file must validate without errors.`,
 			if !validIdent(pkg) {
 				return errs.Invalid("--package %q: a Go package name (lower-case letters, digits, underscores)", pkg)
 			}
-			src, err := os.ReadFile(args[0])
+			src, err := os.ReadFile(filepath.Clean(args[0]))
 			if err != nil {
 				return errs.New(errs.KindInvalidInput, errs.CodeFileOpen, "cannot read EDS: %w", err)
 			}
@@ -461,7 +477,7 @@ SHA-256. The file must validate without errors.`,
 				return errs.New(errs.KindInvalidInput, errs.CodeInvalidEDS, "%s: %v", args[0], err)
 			}
 			if out != "" && out != "-" {
-				if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
+				if err := os.MkdirAll(filepath.Dir(out), 0o750); err != nil {
 					return errs.New(errs.KindOutput, errs.CodeOutputFailed, "%v", err)
 				}
 			}

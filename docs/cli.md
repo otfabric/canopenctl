@@ -183,8 +183,9 @@ Flags:
       --fd                 CANopen FD (CiA 1301): open the interface for CAN FD and read over USDO instead of SDO
   -h, --help               help for read
   -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --max-size int       Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO) (default 1048576)
   -o, --output string      Also write the raw data to this file
-      --retries int        Repeat a transfer that timed out up to this many times (0..10)
+      --retries int        Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)
       --timeout duration   SDO response timeout (default 1s)
   -t, --type string        Data type: UNSIGNED32, INTEGER16, REAL32, VISIBLE_STRING, OCTET_STRING, DOMAIN... or u32, i16, f32, string, octets
 
@@ -223,7 +224,8 @@ Flags:
       --file string        Download this file's content instead of a value
   -h, --help               help for write
   -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
-      --retries int        Repeat a transfer that timed out up to this many times (0..10)
+      --max-size int       Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO) (default 1048576)
+      --retries int        Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)
       --timeout duration   SDO response timeout (default 1s)
   -t, --type string        Data type: UNSIGNED32, INTEGER16, REAL32, VISIBLE_STRING, OCTET_STRING, DOMAIN... or u32, i16, f32, string, octets
       --verify             Read the value back and compare (exit 1 when it differs)
@@ -260,8 +262,9 @@ Flags:
       --fd                 CANopen FD (CiA 1301): open the interface for CAN FD and read over USDO instead of SDO
   -h, --help               help for dump
   -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --max-size int       Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO) (default 1048576)
       --range string       Only objects in this index range: 6000-6FFF, or one index
-      --retries int        Repeat a transfer that timed out up to this many times (0..10)
+      --retries int        Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)
       --timeout duration   SDO response timeout (default 1s)
 
 Global Flags:
@@ -553,7 +556,8 @@ Flags:
       --fd                 CANopen FD (CiA 1301): open the interface for CAN FD and read over USDO instead of SDO
   -h, --help               help for show
   -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
-      --retries int        Repeat a transfer that timed out up to this many times (0..10)
+      --max-size int       Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO) (default 1048576)
+      --retries int        Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)
       --rpdo int           Only this RPDO (1..512)
       --timeout duration   SDO response timeout (default 1s)
       --tpdo int           Only this TPDO (1..512)
@@ -598,8 +602,9 @@ Flags:
       --inhibit int        Inhibit time of a TPDO in 100 µs (default: keep the node's)
   -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
       --map string         Mapping entries IIII:SS:BITS, comma-separated
+      --max-size int       Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO) (default 1048576)
       --no-rtr             Set COB-ID bit 30: no remote transmission requests
-      --retries int        Repeat a transfer that timed out up to this many times (0..10)
+      --retries int        Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)
       --rpdo int           Configure this RPDO (1..512)
       --sync-start int     SYNC start value of a TPDO, 0..240 (default: keep the node's)
       --timeout duration   SDO response timeout (default 1s)
@@ -637,7 +642,8 @@ Flags:
   -h, --help                help for watch
   -i, --interface string    CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
       --map string          Mapping IIII:SS:BITS,... (with --cob-id)
-      --retries int         Repeat a transfer that timed out up to this many times (0..10)
+      --max-size int        Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO) (default 1048576)
+      --retries int         Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)
       --timeout duration    SDO response timeout (default 1s)
       --tpdo int            TPDO number (1..512, required)
 
@@ -832,7 +838,8 @@ Flags:
       --fd                 CANopen FD (CiA 1301): open the interface for CAN FD and write over USDO instead of SDO
   -h, --help               help for apply
   -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
-      --retries int        Repeat a transfer that timed out up to this many times (0..10)
+      --max-size int       Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO) (default 1048576)
+      --retries int        Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)
       --timeout duration   SDO response timeout (default 1s)
       --yes                Confirm a state-changing transmission on an interface that is not virtual
 
@@ -865,9 +872,10 @@ Flags:
       --eds string         EDS of the node (required)
   -h, --help               help for export
   -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --max-size int       Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO) (default 1048576)
       --node-name string   NodeName of the DCF's commissioning section
   -o, --output string      Output file (default: stdout)
-      --retries int        Repeat a transfer that timed out up to this many times (0..10)
+      --retries int        Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)
       --timeout duration   SDO response timeout (default 1s)
 
 Global Flags:
@@ -921,8 +929,9 @@ Usage:
 Flags:
   -h, --help                    help for state
   -i, --interface string        CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --max-size int            Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO) (default 1048576)
       --poll duration           Pause between two statusword reads (default 10ms)
-      --retries int             Repeat a transfer that timed out up to this many times (0..10)
+      --retries int             Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)
       --step-timeout duration   Bound of every step: a state transition, a mode change, a set-point handshake, a move (default 2s)
       --timeout duration        SDO response timeout (default 1s)
 
@@ -943,9 +952,10 @@ Usage:
 Flags:
   -h, --help                    help for enable
   -i, --interface string        CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --max-size int            Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO) (default 1048576)
       --poll duration           Pause between two statusword reads (default 10ms)
       --reset-fault             Reset a fault on the way
-      --retries int             Repeat a transfer that timed out up to this many times (0..10)
+      --retries int             Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)
       --step-timeout duration   Bound of every step: a state transition, a mode change, a set-point handshake, a move (default 2s)
       --timeout duration        SDO response timeout (default 1s)
       --yes                     Confirm a state-changing transmission on an interface that is not virtual
@@ -967,8 +977,9 @@ Usage:
 Flags:
   -h, --help                    help for disable
   -i, --interface string        CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --max-size int            Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO) (default 1048576)
       --poll duration           Pause between two statusword reads (default 10ms)
-      --retries int             Repeat a transfer that timed out up to this many times (0..10)
+      --retries int             Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)
       --step-timeout duration   Bound of every step: a state transition, a mode change, a set-point handshake, a move (default 2s)
       --timeout duration        SDO response timeout (default 1s)
       --yes                     Confirm a state-changing transmission on an interface that is not virtual
@@ -990,8 +1001,9 @@ Usage:
 Flags:
   -h, --help                    help for fault-reset
   -i, --interface string        CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --max-size int            Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO) (default 1048576)
       --poll duration           Pause between two statusword reads (default 10ms)
-      --retries int             Repeat a transfer that timed out up to this many times (0..10)
+      --retries int             Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)
       --step-timeout duration   Bound of every step: a state transition, a mode change, a set-point handshake, a move (default 2s)
       --timeout duration        SDO response timeout (default 1s)
       --yes                     Confirm a state-changing transmission on an interface that is not virtual
@@ -1013,8 +1025,9 @@ Usage:
 Flags:
   -h, --help                    help for quick-stop
   -i, --interface string        CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --max-size int            Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO) (default 1048576)
       --poll duration           Pause between two statusword reads (default 10ms)
-      --retries int             Repeat a transfer that timed out up to this many times (0..10)
+      --retries int             Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)
       --step-timeout duration   Bound of every step: a state transition, a mode change, a set-point handshake, a move (default 2s)
       --timeout duration        SDO response timeout (default 1s)
       --yes                     Confirm a state-changing transmission on an interface that is not virtual
@@ -1036,8 +1049,9 @@ Usage:
 Flags:
   -h, --help                    help for mode
   -i, --interface string        CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --max-size int            Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO) (default 1048576)
       --poll duration           Pause between two statusword reads (default 10ms)
-      --retries int             Repeat a transfer that timed out up to this many times (0..10)
+      --retries int             Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)
       --step-timeout duration   Bound of every step: a state transition, a mode change, a set-point handshake, a move (default 2s)
       --timeout duration        SDO response timeout (default 1s)
       --yes                     Confirm a state-changing transmission on an interface that is not virtual
@@ -1062,10 +1076,11 @@ Flags:
   -h, --help                    help for move
       --immediate               Replace an active set-point (change set immediately)
   -i, --interface string        CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --max-size int            Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO) (default 1048576)
       --move-timeout duration   Bound of the wait for target reached (0: --step-timeout)
       --poll duration           Pause between two statusword reads (default 10ms)
       --relative                Target relative to the preceding target
-      --retries int             Repeat a transfer that timed out up to this many times (0..10)
+      --retries int             Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)
       --step-timeout duration   Bound of every step: a state transition, a mode change, a set-point handshake, a move (default 2s)
       --timeout duration        SDO response timeout (default 1s)
       --velocity uint32         Profile velocity 0x6081 (0: keep)
@@ -1089,8 +1104,9 @@ Usage:
 Flags:
   -h, --help                    help for velocity
   -i, --interface string        CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --max-size int            Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO) (default 1048576)
       --poll duration           Pause between two statusword reads (default 10ms)
-      --retries int             Repeat a transfer that timed out up to this many times (0..10)
+      --retries int             Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)
       --step-timeout duration   Bound of every step: a state transition, a mode change, a set-point handshake, a move (default 2s)
       --timeout duration        SDO response timeout (default 1s)
       --yes                     Confirm a state-changing transmission on an interface that is not virtual
@@ -1470,8 +1486,9 @@ Flags:
   -h, --help               help for configure
       --inhibit int        Inhibit time of a TPDO in 100 µs
   -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --max-size int       Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO) (default 1048576)
       --mode string        Address mode: dam (destination) or sam (source) (required)
-      --retries int        Repeat a transfer that timed out up to this many times (0..10)
+      --retries int        Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)
       --rpdo int           Make this RPDO an MPDO consumer (1..512)
       --timeout duration   SDO response timeout (default 1s)
       --tpdo int           Make this TPDO an MPDO producer (1..512)
@@ -1506,7 +1523,8 @@ Flags:
   -h, --help                help for scanner
   -i, --interface string    CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
       --list int            List number 1..48 (default 1)
-      --retries int         Repeat a transfer that timed out up to this many times (0..10)
+      --max-size int        Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO) (default 1048576)
+      --retries int         Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)
       --timeout duration    SDO response timeout (default 1s)
       --yes                 Confirm a state-changing transmission on an interface that is not virtual
 
@@ -1539,7 +1557,8 @@ Flags:
   -h, --help                help for dispatcher
   -i, --interface string    CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
       --list int            List number 1..48 (default 1)
-      --retries int         Repeat a transfer that timed out up to this many times (0..10)
+      --max-size int        Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO) (default 1048576)
+      --retries int         Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)
       --timeout duration    SDO response timeout (default 1s)
       --yes                 Confirm a state-changing transmission on an interface that is not virtual
 
@@ -1619,10 +1638,11 @@ Flags:
       --lss                   Give unconfigured devices the node-ID of the slave whose --expect identity they have (LSS Fastscan)
       --lss-window duration   Listening window of each Fastscan query of --lss (default 25ms)
       --master-id int         Node-ID of canopenctl's manager node (default 127)
+      --max-size int          Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO) (default 1048576)
       --max-time duration     Bound of the whole boot-up (default 1m0s)
       --no-start              Leave the slaves pre-operational
       --optional string       Slaves that are not mandatory: 5,7-9
-      --retries int           Repeat a transfer that timed out up to this many times (0..10)
+      --retries int           Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)
       --slave stringArray     A slave: NODE, or NODE=FILE with its DCF or concise DCF (repeatable)
       --store                 Make each configured slave save its parameters (0x1010:01)
       --timeout duration      SDO response timeout (default 1s)
@@ -1739,7 +1759,8 @@ Flags:
       --fd                 CANopen FD (CiA 1301): open the interface for CAN FD and write over USDO instead of SDO
   -h, --help               help for apply
   -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
-      --retries int        Repeat a transfer that timed out up to this many times (0..10)
+      --max-size int       Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO) (default 1048576)
+      --retries int        Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)
       --timeout duration   SDO response timeout (default 1s)
       --yes                Confirm a state-changing transmission on an interface that is not virtual
 
@@ -1771,7 +1792,8 @@ Flags:
       --group string       Parameter group: all, communication, application, manufacturer, or a sub-index (default "all")
   -h, --help               help for store
   -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
-      --retries int        Repeat a transfer that timed out up to this many times (0..10)
+      --max-size int       Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO) (default 1048576)
+      --retries int        Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)
       --timeout duration   SDO response timeout (default 1s)
       --yes                Confirm a state-changing transmission on an interface that is not virtual
 
@@ -1803,8 +1825,9 @@ Flags:
       --group string       Parameter group: all, communication, application, manufacturer, or a sub-index (default "all")
   -h, --help               help for restore
   -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --max-size int       Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO) (default 1048576)
       --reset              Reset the node (NMT reset node) so that the defaults apply now
-      --retries int        Repeat a transfer that timed out up to this many times (0..10)
+      --retries int        Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)
       --timeout duration   SDO response timeout (default 1s)
       --yes                Confirm a state-changing transmission on an interface that is not virtual
 
@@ -1869,10 +1892,11 @@ Flags:
   -h, --help                    help for download
       --identification string   Expected application software identification 0x1F56 after the download
   -i, --interface string        CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --max-size int            Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO) (default 1048576)
       --max-time duration       Bound of the whole download (default 5m0s)
       --poll duration           Polling interval of the flash status and program control (default 100ms)
       --program int             Program number: the sub-index of 0x1F50/0x1F51 (1..254) (default 1)
-      --retries int             Repeat a transfer that timed out up to this many times (0..10)
+      --retries int             Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)
       --timeout duration        SDO response timeout (default 1s)
       --yes                     Confirm a state-changing transmission on an interface that is not virtual
 
@@ -1901,8 +1925,9 @@ Flags:
       --fd                 CANopen FD (CiA 1301): open the interface for CAN FD and use USDO instead of SDO (bulk transfer of the image)
   -h, --help               help for control
   -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --max-size int       Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO) (default 1048576)
       --program int        Program number: the sub-index of 0x1F50/0x1F51 (1..254) (default 1)
-      --retries int        Repeat a transfer that timed out up to this many times (0..10)
+      --retries int        Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)
       --timeout duration   SDO response timeout (default 1s)
       --yes                Confirm a state-changing transmission on an interface that is not virtual
 
@@ -1931,8 +1956,9 @@ Flags:
       --fd                 CANopen FD (CiA 1301): open the interface for CAN FD and use USDO instead of SDO (bulk transfer of the image)
   -h, --help               help for status
   -i, --interface string   CAN interface: can0, vcan0, slcan:<device>, slcan:tcp://host:port or virtual (env CANOPENCTL_INTERFACE)
+      --max-size int       Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO) (default 1048576)
       --program int        Program number: the sub-index of 0x1F50/0x1F51 (1..254) (default 1)
-      --retries int        Repeat a transfer that timed out up to this many times (0..10)
+      --retries int        Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)
       --timeout duration   SDO response timeout (default 1s)
 
 Global Flags:

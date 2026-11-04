@@ -74,7 +74,7 @@ func validateOutput(t *testing.T, r result) {
 	case strings.HasPrefix(out, "{\n"):
 		validate(t, "result", out)
 	default:
-		for _, l := range strings.Split(out, "\n") {
+		for l := range strings.SplitSeq(out, "\n") {
 			validate(t, "record", l)
 		}
 	}

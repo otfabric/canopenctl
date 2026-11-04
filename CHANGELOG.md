@@ -3,6 +3,14 @@
 All notable changes are listed here; release notes are in
 [RELEASE.md](RELEASE.md).
 
+## v0.4.0 (2026-11-04)
+
+Go 1.26, go-canopen v0.4.1, go-canbus v0.8.0. SAST hardening: integer
+node-ID flags no longer wrap (`--client-id 257` was node 1); `--baud`
+refuses 1..9; output files are 0600. New `--max-size` (uploads, 1 MiB
+default); `--retries` also repeats SDO transfers broken by lost or
+reordered frames. Hostile-peer, chaos and fuzz tests.
+
 ## v0.3.0 (2026-10-30)
 
 Exit codes follow the organisation table: `permission` is 9 (was 7), an
