@@ -154,8 +154,10 @@ limactl shell canvm -- bash -lc 'cd /tmp && sg docker -c "CANOPENCTL_REQUIRE_VCA
 
 ### Interop results
 
-canopen-interop v0.2.0 (contract 1.1, images pinned by digest), Linux 7.0
-arm64 (Lima), vcan0, 2026-10-30; the full suite run twice with identical counts, the new scenarios three more times:
+canopen-interop v0.3.1 (contract 1.1, images pinned by digest), Linux 7.0
+arm64 (Lima), vcan0, 2026-11-04 (canopenctl v0.4.0 on go-canopen v0.4.1):
+the same counts as on v0.2.0 (2026-10-30: the full suite run twice with
+identical counts, the new scenarios three more times):
 
 | Adapter | Pass | Known difference | Skip | Fail | Before (v0.2.0 suite: pass / known / skip) |
 |---------|-----:|-----:|-----:|-----:|---|
