@@ -231,6 +231,14 @@ func TestStackDeviceStoreProgram(t *testing.T) {
 					capSkip(t, "%s's device (interop-device.eds, the contract's device) has no restore default parameters 0x1011: %s", a, why)
 				}
 				want(t, ctl(t, "restore", "5", "--reset", "-i", ifc), 0, "NMT reset node sent")
+				// The device answers SDO again after its boot-up; the next
+				// scenario's requests must not fall into the reset.
+				deadline := time.Now().Add(10 * time.Second)
+				for ctl(t, "sdo", "read", "5", "0x1000", "0", "-i", ifc, "--timeout", "200ms").code != 0 {
+					if time.Now().After(deadline) {
+						t.Fatal("no SDO answer 10 s after the reset")
+					}
+				}
 			})
 			scenario(t, a, "program", func(t *testing.T) {
 				for _, idx := range []string{"0x1F50", "0x1F51"} {
