@@ -140,7 +140,7 @@ func TestMPDOInvalid(t *testing.T) {
 		want(t, run(t, "", args...), c.code, c.msg)
 	}
 	var entries []string
-	for i := 0; i < 255; i++ {
+	for range 255 {
 		entries = append(entries, "--entry", "2000:00")
 	}
 	want(t, run(t, "", append([]string{"mpdo", "scanner", "5", "-i", "virtual"}, entries...)...), 3, "at most 254")

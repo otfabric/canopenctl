@@ -8,7 +8,7 @@
 | `make coverage-pkg-check` | Every package at least `COVER_PKG_MIN` (90 %); lowest measured in CI: 92.4 % (cmd). The vcan job runs it |
 | `make e2e` | End-to-end tests of the built binary (Linux parts need vcan0) |
 | `make interop` | The binary against the canopen-interop images (Docker, vcan0) |
-| `make fuzz` | Fuzz targets of the parsed inputs: values per data type, PDO mappings, node lists, indices/sub-indices/types/COB-IDs, LSS addresses and MPDO list entries |
+| `make fuzz` | Fuzz targets of the parsed inputs: values per data type, PDO mappings, node lists, numbers (node-IDs, sub-indices, UNSIGNED32, store groups, COB-IDs, NODE=VALUE), indices/sub-indices/types/COB-IDs, LSS addresses and MPDO list entries; and of the file inputs through the commands: `decode -` with arbitrary bytes (every trace reader) and `eds validate`/`eds show` with arbitrary files (exit 0, 1 or 3, never a panic) |
 | `make cross` | vet for every release platform, linux/arm (32-bit) included |
 | `make check` | fmt, staticcheck, golangci-lint, vet, cross, govulncheck, test, coverage, coverage-pkg-check |
 
@@ -27,6 +27,17 @@ the CiA 302 boot-up (with the LSS step) and CANopen FD nodes
 test produces traffic or events until the command's `--count` is reached. A
 command that runs into the test's 30 s limit fails the test (a stream that
 waited for nothing cannot pass silently).
+
+**Hostile peers and chaos** (`cmd/hostile_test.go`, `cmd/chaos_test.go`,
+`cmd/sast_test.go`): an SDO server announcing 4 GiB or streaming segments
+without end cannot make canopenctl hold more than `--max-size` (exit 6
+quickly, no segment requested when the size is announced);
+`TestMonkeySDO` runs `sdo read` (segmented and block) and
+`sdo write --verify` through a chaos bridge that drops, duplicates, delays
+and reorders frames: a run reports the right data or fails with exit 5, 6
+or 11, never wrong data, and with `--retries 5` at least 90 % succeed.
+Integer flags are checked before they become node-IDs or bytes
+(`--client-id 257` was node 1).
 
 **Golden files** (`cmd/testdata/golden`, regenerate with
 `go test ./cmd -update`) pin `decode` (text and JSON Lines), `eds show`,

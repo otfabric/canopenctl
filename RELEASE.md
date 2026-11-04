@@ -6,6 +6,63 @@ with the version bump). It computes the tag, builds the binaries for linux
 publishes the GitHub release with the section of this file that matches the
 version as its notes. Add the section before running it.
 
+## v0.4.0
+
+**Date:** 2026-11-04
+**Previous release:** v0.3.2
+
+SAST review (gosec and opengrep at severity and confidence low): 34
+findings, all fixed in code, none accepted. Four were real defects where an
+integer flag wrapped before its range check. Hostile-peer, chaos and fuzz
+tests added; the chaos test found a go-canopen SDO defect (wrong data after
+a retry), fixed in go-canopen v0.4.1.
+
+### Breaking
+
+- Go 1.26 or later is required to build (`go fix` applied).
+- Files canopenctl writes (`sdo read --output`, `eds convert`,
+  `eds generate`, `dcf export`, `cdcf convert` with `--output`) are created
+  with mode 0600 (was 0644), and the directory `eds generate` creates with
+  0750 (was 0755). Existing files keep their mode.
+- `--baud` of `eds convert` refuses 1..9: the help said 10..1000 and they
+  were accepted.
+- Uploads (`sdo read`, `pdo`, `program status`, USDO with `--fd`) larger
+  than 1 MiB fail unless `--max-size` is raised: go-canopen v0.4.0 bounds
+  USDO uploads as it already bounded SDO uploads.
+
+### Fixed
+
+- Integer node-ID flags were converted before their range check, so 257
+  became node-ID 1 (and 258 node-ID 2) and passed: `--client-id` (`--fd`
+  commands), `boot --master-id`, `lss assign-all --first` and
+  `simulate --node-id`. They are refused with exit 3.
+- A go-canopen SDO transfer retried with `--retries` on a bus that delays
+  or reorders frames could report wrong data of the right length
+  (go-canopen v0.4.1).
+
+### Added
+
+- `--max-size` on the SDO/USDO commands: the largest upload accepted
+  (1 B..1 GiB, default 1 MiB); a larger one is aborted with 0x05040005
+  before it is held, exit 6, and the message names `--max-size`.
+- `--retries` also repeats an SDO transfer that broke on a lost,
+  duplicated or reordered frame (abort 0x05030000 toggle, 0x05040001
+  command, 0x05040002..04 block size, sequence, CRC), after waiting one
+  `--timeout` for frames of the broken transfer. It repeated only
+  timeouts; those aborts ended about half the transfers on a faulty bus.
+- Tests: hostile SDO servers (4 GiB announced, endless segments),
+  `TestMonkeySDO` (SDO through a dropping, duplicating, delaying,
+  reordering bus), fuzz targets `FuzzParseNumbers`, `FuzzDecodeTrace`
+  and `FuzzEDSFile`, and regression tests for every finding.
+
+### Changed
+
+- Built on go-canopen v0.4.1, go-canbus v0.8.0 (Go 1.26 floors match).
+- Interop images canopen-interop v0.3.1 (contract 1.1 unchanged); shared
+  workflows v3.3.1; CI on Go 1.26 and 1.27.
+
+---
+
 ## v0.3.2
 
 **Date:** 2026-10-31

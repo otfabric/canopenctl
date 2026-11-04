@@ -190,16 +190,18 @@ func usdoAbortOf(ue *usdo.AbortError) *Abort {
 		USDOCode: fmt.Sprintf("0x%02X", uint8(ue.Code))}
 }
 
+// maxSizeHint explains a local "out of memory" abort: the client's
+// upload limit, not the device's memory.
+const maxSizeHint = " (the data is larger than --max-size)"
+
 // Classify turns any error into a typed one, recognising go-canbus and
 // go-canopen sentinels.
 func Classify(err error) *Error {
-	var e *Error
-	if errors.As(err, &e) {
+	if e, ok := errors.AsType[*Error](err); ok {
 		return e
 	}
 	mk := func(k Kind, code string) *Error { return &Error{Kind: k, Code: code, Message: err.Error(), Cause: err} }
-	var ue *usdo.AbortError
-	if errors.As(err, &ue) {
+	if ue, ok := errors.AsType[*usdo.AbortError](err); ok {
 		r := mk(KindProtocol, CodeSDOProtocol)
 		switch {
 		case ue.Remote:
@@ -208,14 +210,15 @@ func Classify(err error) *Error {
 			r.Kind, r.Code = KindTimeout, CodeSDOTimeout
 		}
 		r.Abort = usdoAbortOf(ue)
+		if !ue.Remote && ue.Code == usdo.AbortOutOfMemory {
+			r.Message += maxSizeHint
+		}
 		return r
 	}
-	var be *master.BootError
-	if errors.As(err, &be) {
+	if _, ok := errors.AsType[*master.BootError](err); ok {
 		return mk(KindDevice, CodeBootFailed)
 	}
-	var ce *lss.ConfigError
-	if errors.As(err, &ce) {
+	if _, ok := errors.AsType[*lss.ConfigError](err); ok {
 		return mk(KindDevice, CodeLSSRefused)
 	}
 	var fe program.FlashError
@@ -224,8 +227,7 @@ func Classify(err error) *Error {
 	}
 	var ae *canopen.AbortError
 	hasAbort := errors.As(err, &ae)
-	var de *cia402.Error
-	if errors.As(err, &de) {
+	if de, ok := errors.AsType[*cia402.Error](err); ok {
 		r := classifyDrive(err, de)
 		if hasAbort {
 			r.Abort = AbortOf(ae)
@@ -251,6 +253,9 @@ func Classify(err error) *Error {
 		r := mk(KindProtocol, CodeSDOProtocol)
 		if hasAbort {
 			r.Abort = AbortOf(ae)
+			if !ae.Remote && ae.Code == canopen.AbortOutOfMemory {
+				r.Message += maxSizeHint
+			}
 		}
 		return r
 	case hasAbort:

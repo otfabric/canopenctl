@@ -229,8 +229,9 @@ microseconds): use it for tests and commissioning, not as a precision clock.`,
 			if err := p.validate(); err != nil {
 				return err
 			}
-			if overflow != 0 && (overflow < 2 || overflow > syncobj.MaxOverflow) {
-				return errs.Invalid("--counter %d: 0 (no counter) or 2..240", overflow)
+			ov, err := counterOf(overflow)
+			if err != nil {
+				return err
 			}
 			cobID, err := cli.ParseCOBID(cob)
 			if err != nil {
@@ -247,7 +248,7 @@ microseconds): use it for tests and commissioning, not as a precision clock.`,
 				return err
 			}
 			defer func() { _ = bus.Close() }()
-			sopts := []syncobj.Option{syncobj.WithCOBID(cobID), syncobj.WithOverflow(uint8(overflow))}
+			sopts := []syncobj.Option{syncobj.WithCOBID(cobID), syncobj.WithOverflow(ov)}
 			if bf.fd {
 				sopts = append(sopts, syncobj.WithFD(bf.brs))
 			}
@@ -260,7 +261,7 @@ microseconds): use it for tests and commissioning, not as a precision clock.`,
 			if err != nil {
 				return err
 			}
-			return a.emit("sync", syncResult{Sent: sent, PeriodUs: p.period.Microseconds(), Overflow: uint8(overflow), COBID: cli.Hex(uint64(cobID.ID()), 3)})
+			return a.emit("sync", syncResult{Sent: sent, PeriodUs: p.period.Microseconds(), Overflow: ov, COBID: cli.Hex(uint64(cobID.ID()), 3)})
 		},
 	}
 	bf.add(c, true)
@@ -351,4 +352,18 @@ it repeats every --period (the current time each time unless --at is given).`,
 	c.Flags().StringVar(&at, "at", "", "Send this time (RFC 3339) instead of the current time")
 	c.Flags().StringVar(&cob, "cob-id", "100", "COB-ID of the TIME message (hexadecimal)")
 	return c
+}
+
+// counterOf checks --counter: 0 (no counter) or 2..240.
+func counterOf(overflow int) (uint8, error) {
+	if overflow == 0 {
+		return 0, nil
+	}
+	if overflow < 2 {
+		return 0, errs.Invalid("--counter %d: 0 (no counter) or 2..240", overflow)
+	}
+	if overflow > syncobj.MaxOverflow {
+		return 0, errs.Invalid("--counter %d: 0 (no counter) or 2..240", overflow)
+	}
+	return uint8(overflow), nil
 }

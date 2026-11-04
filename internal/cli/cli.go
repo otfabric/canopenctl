@@ -11,6 +11,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -34,14 +35,28 @@ const Virtual = "virtual"
 // "slcan:/dev/ttyACM0", "slcan:COM3" or "slcan:tcp://host:port".
 const SlcanPrefix = "slcan:"
 
-// parseNumber parses a decimal or 0x-hexadecimal number of at most bits
-// bits.
-func parseNumber(s string, bits int) (uint64, error) {
+// numberBase splits a decimal or 0x-hexadecimal number into its digits
+// and base.
+func numberBase(s string) (string, int) {
 	s = strings.TrimSpace(s)
 	if h, ok := strings.CutPrefix(strings.ToLower(s), "0x"); ok {
-		return strconv.ParseUint(h, 16, bits)
+		return h, 16
 	}
-	return strconv.ParseUint(s, 10, bits)
+	return s, 10
+}
+
+// parseUint8 parses a decimal or 0x-hexadecimal number of 0..255.
+func parseUint8(s string) (uint8, error) {
+	d, base := numberBase(s)
+	v, err := strconv.ParseUint(d, base, 8)
+	return uint8(v), err
+}
+
+// parseUint32 parses a decimal or 0x-hexadecimal number of 32 bits.
+func parseUint32(s string) (uint32, error) {
+	d, base := numberBase(s)
+	v, err := strconv.ParseUint(d, base, 32)
+	return uint32(v), err
 }
 
 // ParseNode parses a node-ID: 1..127, decimal or 0x hexadecimal. With
@@ -50,7 +65,7 @@ func ParseNode(s string, allowAll bool) (canopen.NodeID, error) {
 	if allowAll && strings.EqualFold(strings.TrimSpace(s), "all") {
 		return canopen.BroadcastNodeID, nil
 	}
-	v, err := parseNumber(s, 8)
+	v, err := parseUint8(s)
 	if err == nil && v == 0 && allowAll {
 		return canopen.BroadcastNodeID, nil
 	}
@@ -63,11 +78,21 @@ func ParseNode(s string, allowAll bool) (canopen.NodeID, error) {
 	return canopen.NodeID(v), nil
 }
 
+// NodeIDOf converts an integer flag value to a node-ID, checking the
+// range 1..127 before the conversion: converting first wrapped 257 to
+// node-ID 1.
+func NodeIDOf(v int) (canopen.NodeID, bool) {
+	if v < int(canopen.MinNodeID) || v > int(canopen.MaxNodeID) {
+		return 0, false
+	}
+	return canopen.NodeID(v), true
+}
+
 // ParseNodeList parses a list of node-IDs and ranges: "1-10,20,0x30".
 // Duplicates are removed; the result is in ascending order.
 func ParseNodeList(s string) ([]canopen.NodeID, error) {
 	var seen [128]bool
-	for _, part := range strings.Split(s, ",") {
+	for part := range strings.SplitSeq(s, ",") {
 		part = strings.TrimSpace(part)
 		if part == "" {
 			continue
@@ -113,11 +138,11 @@ func ParseIndex(s string) (uint16, error) {
 // ParseSub parses a sub-index: decimal, or hexadecimal with 0x ("1",
 // "0x01").
 func ParseSub(s string) (uint8, error) {
-	v, err := parseNumber(s, 8)
+	v, err := parseUint8(s)
 	if err != nil {
 		return 0, errs.Invalid("invalid sub-index %q (0..255, or 0x00..0xFF)", s)
 	}
-	return uint8(v), nil
+	return v, nil
 }
 
 // typeAliases are short names for --type.
@@ -194,7 +219,7 @@ func trimPrefix(err error) string {
 // length in bits decimal.
 func ParseMapping(s string) (pdo.Mapping, error) {
 	var m pdo.Mapping
-	for _, part := range strings.Split(s, ",") {
+	for part := range strings.SplitSeq(s, ",") {
 		part = strings.TrimSpace(part)
 		if part == "" {
 			continue
@@ -325,7 +350,7 @@ func ValueText(t canopen.DataType, b []byte) string {
 // LoadEDS reads an EDS or DCF file. Lines it cannot read are an
 // invalid_eds error (exit 3).
 func LoadEDS(path string) (*eds.File, error) {
-	b, err := os.ReadFile(path)
+	b, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
 		return nil, errs.New(errs.KindInvalidInput, errs.CodeFileOpen, "cannot read EDS: %w", err)
 	}
@@ -353,7 +378,7 @@ func OpenTrace(path string, stdin io.Reader) (capture.Reader, func(), error) {
 	r := stdin
 	closer := func() {}
 	if path != "-" {
-		f, err := os.Open(path)
+		f, err := os.Open(filepath.Clean(path))
 		if err != nil {
 			return nil, nil, errs.New(errs.KindInvalidInput, errs.CodeFileOpen, "cannot open trace: %w", err)
 		}
@@ -406,11 +431,11 @@ func Key(index uint16, sub uint8) string { return fmt.Sprintf("0x%04X:%02X", ind
 
 // ParseUint32 parses an UNSIGNED32: decimal or 0x hexadecimal.
 func ParseUint32(s string) (uint32, error) {
-	v, err := parseNumber(s, 32)
+	v, err := parseUint32(s)
 	if err != nil {
 		return 0, errs.Invalid("invalid value %q (decimal or 0x hexadecimal UNSIGNED32)", s)
 	}
-	return uint32(v), nil
+	return v, nil
 }
 
 // ParseLSSAddress parses an LSS address as vendor:product:revision:serial,
@@ -513,11 +538,11 @@ func ParseStoreGroup(s string) (uint8, error) {
 	if g, ok := storeGroups[strings.ToLower(strings.TrimSpace(s))]; ok {
 		return g, nil
 	}
-	v, err := parseNumber(s, 8)
+	v, err := parseUint8(s)
 	if err != nil || v < 1 || v > 127 {
 		return 0, errs.Invalid("invalid group %q (all, communication, application, manufacturer or a sub-index 1..127)", s)
 	}
-	return uint8(v), nil
+	return v, nil
 }
 
 // ParseNodeValue parses "NODE=VALUE" (a node-ID and a file, an address...).

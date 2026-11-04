@@ -11,7 +11,8 @@ import (
 	"fmt"
 	"hash/crc32"
 	"os"
-	"sort"
+	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -34,7 +35,7 @@ import (
 // concise DCF for node (0: the DCF's node-ID) with the PDO sequence of
 // CiA 301. kind says which it was.
 func loadConcise(path string, node canopen.NodeID) (entries []cdcf.Entry, kind string, err error) {
-	b, err := os.ReadFile(path)
+	b, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
 		return nil, "", errs.New(errs.KindInvalidInput, errs.CodeFileOpen, "cannot read %s: %w", path, err)
 	}
@@ -422,6 +423,7 @@ type programFlags struct {
 	bf  busFlags
 	sf  sdoFlags
 	num int
+	sub uint8 // num, set by validate
 }
 
 func (p *programFlags) add(c *cobra.Command, transmits bool) {
@@ -433,9 +435,13 @@ func (p *programFlags) add(c *cobra.Command, transmits bool) {
 }
 
 func (p *programFlags) validate() error {
-	if p.num < 1 || p.num > 254 {
+	if p.num < 1 {
 		return errs.Invalid("--program %d: 1..254", p.num)
 	}
+	if p.num > 254 {
+		return errs.Invalid("--program %d: 1..254", p.num)
+	}
+	p.sub = uint8(p.num)
 	if err := p.sf.validate(); err != nil {
 		return err
 	}
@@ -499,7 +505,7 @@ whole download, --timeout each SDO transfer.`,
 					return err
 				}
 			}
-			data, err := os.ReadFile(args[1])
+			data, err := os.ReadFile(filepath.Clean(args[1]))
 			if err != nil {
 				return errs.New(errs.KindInvalidInput, errs.CodeFileOpen, "cannot read %s: %w", args[1], err)
 			}
@@ -518,12 +524,12 @@ whole download, --timeout each SDO transfer.`,
 			}
 			defer done()
 			since := time.Now()
-			err = m.DownloadProgram(cmd.Context(), node, data, master.ProgramOptions{Program: uint8(pf.num), Identification: want,
+			err = m.DownloadProgram(cmd.Context(), node, data, master.ProgramOptions{Program: pf.sub, Identification: want,
 				Timing: master.BootTiming{PollInterval: poll, ProgramTimeout: timeout}})
 			if err != nil {
 				return err
 			}
-			r := programResult{Node: node, Program: uint8(pf.num), Action: "download", File: args[1], Bytes: len(data),
+			r := programResult{Node: node, Program: pf.sub, Action: "download", File: args[1], Bytes: len(data),
 				State: program.Started.String(), ElapsedMs: time.Since(since).Milliseconds()}
 			if want != 0 {
 				r.Identification = cli.Hex(uint64(want), 8)
@@ -577,10 +583,10 @@ pre-operational and refuses others with an abort (exit 11).`,
 				return err
 			}
 			defer func() { _ = cl.Close() }()
-			if err := cl.Download(cmd.Context(), program.IndexControl, uint8(pf.num), []byte{byte(pc)}); err != nil {
+			if err := cl.Download(cmd.Context(), program.IndexControl, pf.sub, []byte{byte(pc)}); err != nil {
 				return err
 			}
-			return a.emit("program control", programResult{Node: node, Program: uint8(pf.num), Action: pc.String()})
+			return a.emit("program control", programResult{Node: node, Program: pf.sub, Action: pc.String()})
 		},
 	}
 	pf.add(c, true)
@@ -616,7 +622,7 @@ node. It only sends read requests.`,
 			}
 			defer func() { _ = cl.Close() }()
 			ctx := cmd.Context()
-			n := uint8(pf.num)
+			n := pf.sub
 			st, err := cl.Upload(ctx, program.IndexControl, n)
 			if err != nil {
 				return err
@@ -815,7 +821,8 @@ reports them); a slave that failed makes the exit code 1.`,
   canopenctl boot --lss --slave 5=node5.dcf --expect 5=F7A:C0C7:0:1001 --slave 6 --expect 6=F7A:C0C7:0:1002 -i can0 --yes`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if !canopen.NodeID(masterID).Valid() {
+			mid, ok := cli.NodeIDOf(masterID)
+			if !ok {
 				return errs.Invalid("--master-id %d: 1..127", masterID)
 			}
 			if timeout <= 0 || bootTime < 0 || bootTime > time.Duration(1<<32-1)*time.Millisecond || lssWindow <= 0 {
@@ -859,7 +866,7 @@ reports them); a slave that failed makes the exit code 1.`,
 						return err
 					}
 				}
-				if id == canopen.NodeID(masterID) {
+				if id == mid {
 					return errs.Invalid("--slave %d is the master's node-ID (--master-id)", id)
 				}
 				if cfgs[id] != nil {
@@ -904,7 +911,7 @@ reports them); a slave that failed makes the exit code 1.`,
 				}
 			}
 			// The manager's dictionary.
-			md, err := od.Standard(od.Config{NodeID: canopen.NodeID(masterID), DeviceName: "canopenctl CiA 302 manager", HeartbeatConsumers: 4})
+			md, err := od.Standard(od.Config{NodeID: mid, DeviceName: "canopenctl CiA 302 manager", HeartbeatConsumers: 4})
 			if err != nil {
 				return errs.New(errs.KindInternal, errs.CodeInternalUnexpected, "manager dictionary: %v", err)
 			}
@@ -915,7 +922,7 @@ reports them); a slave that failed makes the exit code 1.`,
 			for id := range cfgs {
 				ids = append(ids, id)
 			}
-			sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+			slices.Sort(ids)
 			for _, id := range ids {
 				sc := cfgs[id]
 				flags := master.AssignSlave | master.AssignBoot
@@ -946,7 +953,11 @@ reports them); a slave that failed makes the exit code 1.`,
 					return errs.Invalid("slave %d: %v", id, err)
 				}
 			}
-			if err := md.SetUint(master.IndexBootTime, 0, uint64(bootTime.Milliseconds())); err != nil {
+			var bootMs uint64 // --boot-time is checked to be 0..2^32-1 ms above
+			if ms := bootTime.Milliseconds(); ms > 0 {
+				bootMs = uint64(ms)
+			}
+			if err := md.SetUint(master.IndexBootTime, 0, bootMs); err != nil {
 				return errs.New(errs.KindInternal, errs.CodeInternalUnexpected, "boot time: %v", err)
 			}
 			// The network boot-up runs at the boot-up of the manager's
@@ -970,7 +981,7 @@ reports them); a slave that failed makes the exit code 1.`,
 			opts := append(sf.masterOptions(&bf), master.WithDictionary(md), master.WithEventHandler(ev.add),
 				master.WithLSSOptions(lss.WithFastscanTimeout(lssWindow)))
 			if bf.fd {
-				opts = append(opts, master.WithUSDOClient(canopen.NodeID(masterID), sf.usdoOptions(bf.brs)...))
+				opts = append(opts, master.WithUSDOClient(mid, sf.usdoOptions(bf.brs)...))
 			}
 			if lssStep {
 				opts = append(opts, master.WithLSSBoot(lss.FastscanOptions{Known: commonParts(expected)}))
@@ -1013,7 +1024,7 @@ reports them); a slave that failed makes the exit code 1.`,
 				}
 				time.Sleep(10 * time.Millisecond)
 			}
-			r := bootResult{Master: canopen.NodeID(masterID), LSS: lssStep, Started: !noStart && bootErr == nil, Slaves: []bootSlave{},
+			r := bootResult{Master: mid, LSS: lssStep, Started: !noStart && bootErr == nil, Slaves: []bootSlave{},
 				ElapsedMs: time.Since(since).Milliseconds()}
 			if bootErr != nil {
 				r.Error = bootErr.Error()

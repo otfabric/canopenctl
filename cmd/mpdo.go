@@ -206,7 +206,7 @@ a fixed size).`
 			var se []mpdo.ScannerEntry
 			var de []mpdo.DispatcherEntry
 			for _, s := range entries {
-				for _, x := range strings.Split(s, ",") {
+				for x := range strings.SplitSeq(s, ",") {
 					if x = strings.TrimSpace(x); x == "" {
 						continue
 					}
@@ -309,7 +309,7 @@ never transmits. A frame shorter than 8 bytes is shown as malformed.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			var ids []canbus.Filter
 			for _, s := range cobs {
-				for _, x := range strings.Split(s, ",") {
+				for x := range strings.SplitSeq(s, ",") {
 					if x = strings.TrimSpace(x); x == "" {
 						continue
 					}

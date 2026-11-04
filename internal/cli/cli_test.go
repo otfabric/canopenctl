@@ -7,11 +7,13 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"unicode/utf8"
 
 	"github.com/otfabric/canopenctl/internal/errs"
+	"github.com/otfabric/go-canbus"
 	"github.com/otfabric/go-canopen"
 	"github.com/otfabric/go-canopen/pdo"
 )
@@ -410,6 +412,54 @@ func FuzzParseMPDOAndLSS(f *testing.F) {
 		}
 		if e, err := ParseDispatcherEntry(s); err == nil && (e.Index == 0 || e.ProducerIndex == 0 || !e.Producer.Valid() || e.Validate() != nil) {
 			t.Fatalf("%q: invalid dispatcher entry %+v accepted", s, e)
+		}
+	})
+}
+
+// TestNodeIDOf: the range is checked before the conversion; 257 and -255
+// were node-ID 1 when converted first.
+func TestNodeIDOf(t *testing.T) {
+	for v, want := range map[int]bool{1: true, 127: true, 0: false, 128: false, 257: false, 385: false, -1: false, -255: false} {
+		id, ok := NodeIDOf(v)
+		if ok != want || (ok && int(id) != v) || (!ok && id != 0) {
+			t.Errorf("NodeIDOf(%d) = %d, %v", v, id, ok)
+		}
+	}
+}
+
+// FuzzParseNumbers checks the number parsers: a node-ID is 1..127 (or 0
+// with "all"), a sub-index and an UNSIGNED32 round-trip through their
+// decimal form, a store group is 1..127, a COB-ID fits 29 bits, and
+// NODE=VALUE gives a valid node and a non-empty value.
+func FuzzParseNumbers(f *testing.F) {
+	for _, s := range []string{"1", "127", "0x7F", "0", "all", "128", "256", "257", "0x101", "-1", "4294967295", "0x1FFFFFFF", "5=x.dcf", "comm", " 0x10 "} {
+		f.Add(s)
+	}
+	f.Fuzz(func(t *testing.T, s string) {
+		if n, err := ParseNode(s, false); err == nil && !n.Valid() {
+			t.Fatalf("%q: node-ID %d accepted", s, n)
+		}
+		if n, err := ParseNode(s, true); err == nil && n != canopen.BroadcastNodeID && !n.Valid() {
+			t.Fatalf("%q: node %d accepted", s, n)
+		}
+		if v, err := ParseSub(s); err == nil {
+			if w, err := ParseSub(strconv.Itoa(int(v))); err != nil || w != v {
+				t.Fatalf("%q: sub-index %d does not round-trip", s, v)
+			}
+		}
+		if v, err := ParseUint32(s); err == nil {
+			if w, err := ParseUint32(strconv.FormatUint(uint64(v), 10)); err != nil || w != v {
+				t.Fatalf("%q: %d does not round-trip", s, v)
+			}
+		}
+		if g, err := ParseStoreGroup(s); err == nil && (g < 1 || g > 127) {
+			t.Fatalf("%q: store group %d accepted", s, g)
+		}
+		if c, err := ParseCOBID(s); err == nil && c.ID() > canbus.MaxExtendedID {
+			t.Fatalf("%q: COB-ID %v accepted", s, c)
+		}
+		if n, v, err := ParseNodeValue(s); err == nil && (!n.Valid() || v == "") {
+			t.Fatalf("%q: %d=%q accepted", s, n, v)
 		}
 	})
 }

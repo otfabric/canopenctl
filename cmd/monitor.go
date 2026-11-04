@@ -64,7 +64,7 @@ func parseMsgFilter(nodes string, svcs []string) (msgFilter, error) {
 		}
 	}
 	for _, s := range svcs {
-		for _, name := range strings.Split(s, ",") {
+		for name := range strings.SplitSeq(s, ",") {
 			name = strings.ToLower(strings.TrimSpace(name))
 			if name == "" {
 				continue

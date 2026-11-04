@@ -95,9 +95,11 @@ vuln: ## govulncheck
 	@govulncheck ./...
 
 FUZZTIME ?= 15s
-fuzz: ## Fuzz the structured CLI inputs (values, mappings, node lists, indices/types, LSS addresses, MPDO entries) for FUZZTIME each
-	@for f in FuzzParseValue FuzzParseMapping FuzzParseNodeList FuzzParseIndexSubType FuzzParseMPDOAndLSS; do \
+fuzz: ## Fuzz the structured CLI inputs (values, mappings, node lists, numbers, indices/types, LSS addresses, MPDO entries) and the trace and EDS file inputs for FUZZTIME each
+	@for f in FuzzParseValue FuzzParseMapping FuzzParseNodeList FuzzParseNumbers FuzzParseIndexSubType FuzzParseMPDOAndLSS; do \
 		go test -run='^$$' -fuzz="^$$f\$$" -fuzztime=$(FUZZTIME) ./internal/cli || exit 1; done
+	@for f in FuzzDecodeTrace FuzzEDSFile; do \
+		go test -run='^$$' -fuzz="^$$f\$$" -fuzztime=$(FUZZTIME) ./cmd || exit 1; done
 
 docs: ## Regenerate docs/cli.md from the --help texts
 	@scripts/gen-cli-doc.sh

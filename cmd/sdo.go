@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -226,7 +227,7 @@ objects). read only sends SDO read requests: it needs no --yes.`,
 			r := sdoValue{Node: t.node, Index: t.index, SubIndex: t.sub, Key: cli.Key(t.index, t.sub), Name: d.name(t.index, t.sub),
 				Size: len(data), Data: fmt.Sprintf("%x", data), Block: cl.blocked(), FD: bf.fd}
 			if outPath != "" {
-				if err := os.WriteFile(outPath, data, 0o644); err != nil {
+				if err := os.WriteFile(outPath, data, 0o600); err != nil {
 					return errs.New(errs.KindOutput, errs.CodeOutputFailed, "write %s: %w", outPath, err)
 				}
 				r.File = outPath
@@ -311,7 +312,7 @@ value back and exits 1 when it differs.`,
 			var data []byte
 			text := ""
 			if inPath != "" {
-				if data, err = os.ReadFile(inPath); err != nil {
+				if data, err = os.ReadFile(filepath.Clean(inPath)); err != nil {
 					return errs.New(errs.KindInvalidInput, errs.CodeFileOpen, "cannot read %s: %w", inPath, err)
 				}
 				if src == "" {
@@ -516,8 +517,7 @@ code 1. When the node does not answer at all, dump stops with a timeout (exit
 							}
 						}
 						e.Error = err.Error()
-						var ae *canopen.AbortError
-						if errors.As(err, &ae) {
+						if ae, ok := errors.AsType[*canopen.AbortError](err); ok {
 							e.Abort = fmt.Sprintf("0x%08X", uint32(ae.Code))
 							e.Error = ae.Code.Text()
 							if e.Error == "" {

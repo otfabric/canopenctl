@@ -313,12 +313,13 @@ nothing else; use vcan0 to talk to it from another canopenctl.`,
 				if nodeID == 0 && !lssOn && f.DeviceComissioning != nil {
 					nodeID = int(f.DeviceComissioning.NodeID)
 				}
-				if !unconfigured && (nodeID < 1 || nodeID > 127) {
-					return errs.Invalid("--node-id %d: 1..127 (required unless the DCF has one, or with --lss)", nodeID)
-				}
-				build := canopen.NodeID(nodeID)
-				if unconfigured {
-					build = lss.Unconfigured
+				build := lss.Unconfigured
+				if !unconfigured {
+					id, ok := cli.NodeIDOf(nodeID)
+					if !ok {
+						return errs.Invalid("--node-id %d: 1..127 (required unless the DCF has one, or with --lss)", nodeID)
+					}
+					build = id
 				}
 				if serial != "" && !setSerial(f, serialNo) {
 					return errs.Invalid("--serial: %s has no 0x1018:04", edsPath)
@@ -336,12 +337,13 @@ nothing else; use vcan0 to talk to it from another canopenctl.`,
 				}
 				d, source = dd, edsPath
 			} else {
-				if !unconfigured && (nodeID < 1 || nodeID > 127) {
-					return errs.Invalid("--node-id %d: 1..127 (required unless --lss)", nodeID)
-				}
-				build := canopen.NodeID(nodeID)
-				if unconfigured {
-					build = lss.Unconfigured
+				build := lss.Unconfigured
+				if !unconfigured {
+					id, ok := cli.NodeIDOf(nodeID)
+					if !ok {
+						return errs.Invalid("--node-id %d: 1..127 (required unless --lss)", nodeID)
+					}
+					build = id
 				}
 				sn := uint32(build)
 				if serial != "" {

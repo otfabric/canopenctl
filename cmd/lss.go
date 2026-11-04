@@ -664,7 +664,8 @@ configured, the result lists them with the error and the exit code is 1.`,
   canopenctl lss assign-all --first 2 --avoid 1-9 --store --vendor 0xF7A -i can0 --yes`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if !canopen.NodeID(first).Valid() {
+			firstID, ok := cli.NodeIDOf(first)
+			if !ok {
 				return errs.Invalid("--first %d: 1..127", first)
 			}
 			if limit < 0 {
@@ -690,11 +691,11 @@ configured, the result lists them with the error and the exit code is 1.`,
 			if store {
 				opts = append(opts, lss.AssignStore())
 			}
-			got, err := m.AssignAll(cmd.Context(), canopen.NodeID(first), opts...)
+			got, err := m.AssignAll(cmd.Context(), firstID, opts...)
 			if err != nil && len(got) == 0 {
 				return lssErr(err)
 			}
-			r := assignResult{First: canopen.NodeID(first), Stored: store, Assignments: []assignJSON{}}
+			r := assignResult{First: firstID, Stored: store, Assignments: []assignJSON{}}
 			for _, x := range got {
 				r.Assignments = append(r.Assignments, assignJSON{addressJSON: addressOf(x.Address), NodeID: x.NodeID})
 			}
