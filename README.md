@@ -30,6 +30,26 @@ Linux (amd64, arm64, armv7), macOS (Intel, Apple silicon) and Windows (amd64, ar
 
 From source (Go 1.26+): `go install github.com/otfabric/canopenctl@latest`
 
+### Shell completion
+
+```sh
+# bash (needs the bash-completion package)
+mkdir -p ~/.local/share/bash-completion/completions
+canopenctl completion bash > ~/.local/share/bash-completion/completions/canopenctl
+
+# zsh: a directory on your fpath, then restart the shell
+mkdir -p ~/.zsh/completions && canopenctl completion zsh > ~/.zsh/completions/_canopenctl
+# and once in ~/.zshrc:  fpath=(~/.zsh/completions $fpath); autoload -U compinit && compinit
+
+# fish
+mkdir -p ~/.config/fish/completions && canopenctl completion fish > ~/.config/fish/completions/canopenctl.fish
+```
+
+```powershell
+# PowerShell: add this line to your profile ($PROFILE)
+canopenctl completion powershell | Out-String | Invoke-Expression
+```
+
 ## At a glance
 
 ```sh
