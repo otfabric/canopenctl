@@ -134,7 +134,7 @@ func TestErrorDocuments(t *testing.T) {
 		t.Fatal(r.out)
 	}
 	r = run(t, "", "sdo", "write", "5", "1017", "0", "1", "-t", "u16", "-i", "slcan:/dev/null", "--format", "json")
-	want(t, r, 9, `"code": "confirmation_required"`)
+	want(t, r, 13, `"code": "confirmation_required"`)
 	want(t, run(t, "", "sdo", "read", "500", "1000", "0", "-i", "virtual"), 3, "invalid node-ID")
 	want(t, run(t, "", "sdo", "read", "5", "1000", "0", "-i", "virtual", "--timeout", "20ms"), 5, "timeout")
 	want(t, run(t, "", "version"), 0, "canopenctl", "go-canopen")
@@ -157,5 +157,5 @@ func TestCDCFChain(t *testing.T) {
 		t.Fatal(r.out)
 	}
 	want(t, run(t, "", "cdcf", "apply", "37", out, "--dry-run"), 0, "would be written to node 37")
-	want(t, run(t, "", "lss", "switch", "waiting", "-i", "slcan:/dev/null"), 9, "--yes")
+	want(t, run(t, "", "lss", "switch", "waiting", "-i", "slcan:/dev/null"), 13, "--yes")
 }

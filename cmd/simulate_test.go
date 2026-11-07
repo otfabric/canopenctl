@@ -80,6 +80,6 @@ func TestSimulateInvalid(t *testing.T) {
 	} {
 		want(t, run(t, "", append([]string{"simulate", "-i", "virtual", "--duration", "10ms"}, c.args...)...), 3, c.msg)
 	}
-	want(t, run(t, "", "simulate", "-i", "slcan:/dev/null", "--node-id", "5"), 9, "--yes")
+	want(t, run(t, "", "simulate", "-i", "slcan:/dev/null", "--node-id", "5"), 13, "--yes")
 	want(t, run(t, "", "simulate", "-i", "virtual", "--eds", "testdata/compact.eds", "--node-id", "5", "--heartbeat", "100", "--duration", "10ms"), 3, "0x1017")
 }

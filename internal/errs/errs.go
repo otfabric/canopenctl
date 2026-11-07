@@ -53,11 +53,11 @@ const (
 	ExitTimeout      = 5
 	ExitProtocol     = 6
 	ExitUnsupported  = 8
-	ExitPermission   = 9 // also a safety refusal: the organisation table has one code for both
-	ExitSafety       = 9
+	ExitPermission   = 9
 	ExitInternal     = 10
 	ExitAbort        = 11  // the device refused an SDO transfer (abort code)
 	ExitDevice       = 12  // the device is in a state that prevents the operation
+	ExitSafety       = 13  // refused for safety: a state-changing transmission without --yes
 	ExitInterrupted  = 130 // 128 + SIGINT, as a shell reports it
 )
 

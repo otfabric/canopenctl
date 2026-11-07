@@ -66,7 +66,7 @@ func TestPDOMapAndWatch(t *testing.T) {
 	want(t, run(t, "", "pdo", "map", "7", "--tpdo", "1", "--map", "2000:00:32", "--cob-id", "605", "-i", "virtual"), 3, "reserved")
 	want(t, run(t, "", "pdo", "map", "7", "--tpdo", "1", "--map", "2000:00:32", "--cob-id", "q", "-i", "virtual"), 3, "COB-ID")
 	want(t, run(t, "", "pdo", "map", "7", "--tpdo", "900", "--map", "2000:00:32", "-i", "virtual"), 3, "1..512")
-	want(t, run(t, "", "pdo", "map", "7", "--tpdo", "1", "--map", "2000:00:32", "-i", "slcan:/dev/null"), 9, "--yes")
+	want(t, run(t, "", "pdo", "map", "7", "--tpdo", "1", "--map", "2000:00:32", "-i", "slcan:/dev/null"), 13, "--yes")
 	want(t, run(t, "", "pdo", "map", "7", "--tpdo", "1", "--map", "2000:00:99", "-i", "virtual"), 3, "1..64 bits")
 	want(t, run(t, "", "pdo", "map", "x", "--tpdo", "1", "--map", "2000:00:32", "-i", "virtual"), 3, "node-ID")
 }

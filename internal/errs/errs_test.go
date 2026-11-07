@@ -88,7 +88,7 @@ func TestClassify(t *testing.T) {
 		t.Fatalf("%+v", d)
 	}
 	for k, code := range map[Kind]int{KindUsage: 2, KindInvalidInput: 3, KindTransport: 4, KindTimeout: 5, KindProtocol: 6,
-		KindPermission: 9, KindUnsupported: 8, KindSafety: 9, KindOutput: 10, KindInternal: 10, KindAbort: 11, KindDevice: 12, KindInterrupted: 130} {
+		KindPermission: 9, KindUnsupported: 8, KindSafety: 13, KindOutput: 10, KindInternal: 10, KindAbort: 11, KindDevice: 12, KindInterrupted: 130} {
 		if ExitCode(k) != code {
 			t.Errorf("%s: %d", k, ExitCode(k))
 		}
