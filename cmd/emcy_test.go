@@ -73,7 +73,7 @@ func TestSync(t *testing.T) {
 	want(t, run(t, "", "sync", "-i", "virtual", "--counter", "1"), 3, "--counter")
 	want(t, run(t, "", "sync", "-i", "virtual", "--cob-id", "zz"), 3, "COB-ID")
 	want(t, run(t, "", "sync", "-i", "virtual", "--count", "-1"), 3, "--count")
-	want(t, run(t, "", "sync", "-i", "slcan:/dev/null"), 9, "--yes")
+	want(t, run(t, "", "sync", "-i", "slcan:/dev/null"), 13, "--yes")
 }
 
 func TestTime(t *testing.T) {
@@ -95,5 +95,5 @@ func TestTime(t *testing.T) {
 	want(t, run(t, "", "time", "-i", "virtual", "--at", "1970-01-01T00:00:00Z"), 3, "--at")
 	want(t, run(t, "", "time", "-i", "virtual", "--cob-id", "x"), 3, "COB-ID")
 	want(t, run(t, "", "time", "-i", "virtual", "--count", "0"), 3, "--duration")
-	want(t, run(t, "", "time", "-i", "slcan:/dev/null"), 9, "--yes")
+	want(t, run(t, "", "time", "-i", "slcan:/dev/null"), 13, "--yes")
 }

@@ -52,7 +52,7 @@ func TestSDOWrite(t *testing.T) {
 	want(t, run(t, "", "sdo", "write", "5", "0x1017", "0", "x", "-t", "u16", "-i", "virtual"), 3, "invalid UNSIGNED16 value")
 	want(t, run(t, "", "sdo", "write", "5", "0x1017", "0", "-t", "u16", "-i", "virtual"), 3, "the value or --file")
 	want(t, run(t, "", "sdo", "write", "200", "0x1017", "0", "1", "-t", "u16", "-i", "virtual"), 3, "invalid node-ID")
-	want(t, run(t, "", "sdo", "write", "5", "0x1017", "0", "1", "-t", "u16", "-i", "slcan:/dev/null"), 9, "--yes")
+	want(t, run(t, "", "sdo", "write", "5", "0x1017", "0", "1", "-t", "u16", "-i", "slcan:/dev/null"), 13, "--yes")
 	// A file, block transfer: the device has no DOMAIN; write a string.
 	in := filepath.Join(t.TempDir(), "name.txt")
 	_ = os.WriteFile(in, []byte("x"), 0o644)

@@ -6,6 +6,20 @@ with the version bump). It computes the tag, builds the binaries for linux
 publishes the GitHub release with the section of this file that matches the
 version as its notes. Add the section before running it.
 
+## v0.5.0
+
+**Date:** unreleased
+**Previous release:** v0.4.0
+
+### Breaking
+
+- A safety refusal exits 13 (was 9): a state-changing command on an
+  interface that is not virtual without `--yes`. Exit 9 now means only a
+  missing privilege to open the interface (`permission`), as in the
+  organisation's exit-code table. Scripts that test for 9 to detect a
+  missing `--yes` must test for 13; the JSON error is unchanged
+  (`"kind": "safety"`, `"code": "confirmation_required"`).
+
 ## v0.4.0
 
 **Date:** 2026-11-04

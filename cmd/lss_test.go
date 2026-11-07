@@ -126,7 +126,7 @@ func TestLSSInvalid(t *testing.T) {
 		{[]string{"switch", "waiting", "--timeout", "0s"}, 3, "--timeout"},
 		{[]string{"switch", "waiting", "--retries", "11"}, 3, "--retries"},
 		{[]string{"switch", "waiting", "--window", "0s"}, 3, "--window"},
-		{[]string{"switch", "waiting", "-i", "slcan:/dev/null"}, 9, "--yes"},
+		{[]string{"switch", "waiting", "-i", "slcan:/dev/null"}, 13, "--yes"},
 		{[]string{"switch", "waiting", "-i", ""}, 2, "no interface"},
 		{[]string{"switch", "waiting", "-i", "slcan:/nonexistent/tty", "--yes"}, 4, ""},
 	} {
