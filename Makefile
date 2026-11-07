@@ -20,7 +20,7 @@ BUILD_DATE  ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS     := -ldflags "-s -w -X 'main.version=$(VERSION)' -X 'main.tag=$(TAG)' -X 'main.commit=$(COMMIT)' -X 'main.buildDate=$(BUILD_DATE)'"
 COVERAGE_MIN := 90
 # docsync release of docs-check (DOC-008).
-DOCSYNC_VERSION := v0.3.0
+DOCSYNC_VERSION := v0.3.1
 # Per-package floor (TEST-012), checked by coverage-pkg-check in the job that
 # has the prerequisites. Lowest package measured in CI: 92.4 % (cmd). See TESTING.md.
 COVER_PKG_MIN := 90

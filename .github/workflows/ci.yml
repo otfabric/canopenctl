@@ -25,7 +25,7 @@ jobs:
       go-versions: '["1.26", "1.27"]'
       test-exclude-regex: "/example(s)?($|/)"
       coverpkg: ./...
-      policy-version: v1.4.1
+      policy-version: v1.4.2
     secrets: inherit
 
   # The commands against simulated nodes on a real vcan interface, natively
