@@ -12,8 +12,8 @@ output) and the impact you see.
 
 | Version | Supported |
 |---------|-----------|
-| 0.5.x | Yes |
-| < 0.5 | No |
+| Latest release | Yes |
+| Older releases | No |
 
 ## Operational safety
 
