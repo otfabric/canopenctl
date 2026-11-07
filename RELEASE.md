@@ -8,7 +8,7 @@ version as its notes. Add the section before running it.
 
 ## v0.5.0
 
-**Date:** unreleased
+**Date:** 2026-11-07
 **Previous release:** v0.4.0
 
 ### Breaking
