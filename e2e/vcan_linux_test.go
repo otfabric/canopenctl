@@ -224,7 +224,7 @@ func TestVCANSafety(t *testing.T) {
 	ifc := vcan0(t)
 	mon := start(t, "monitor", "-i", ifc, "--service", "nmt", "--duration", "1s", "--format", "json")
 	time.Sleep(200 * time.Millisecond)
-	want(t, run(t, "", "nmt", "stop", "all", "-i", "slcan:/dev/null"), 9, "--yes")
+	want(t, run(t, "", "nmt", "stop", "all", "-i", "slcan:/dev/null"), 13, "--yes")
 	want(t, run(t, "", "nmt", "stop", "99", "-i", ifc), 0)
 	r := mon.wait(t, 10*time.Second)
 	want(t, r, 0, `"target":99`)

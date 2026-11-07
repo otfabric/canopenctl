@@ -51,7 +51,7 @@ func TestCiA402(t *testing.T) {
 	want(t, run(t, "", args("cia402", "velocity", "3", "fast")...), 3, "invalid velocity")
 	want(t, run(t, "", args("cia402", "state", "300")...), 3, "node-ID")
 	want(t, run(t, "", args("cia402", "state", "3", "--step-timeout", "0s")...), 3, "--step-timeout")
-	want(t, run(t, "", "cia402", "enable", "3", "-i", "slcan:/dev/null"), 9, "--yes")
+	want(t, run(t, "", "cia402", "enable", "3", "-i", "slcan:/dev/null"), 13, "--yes")
 	// No drive at the node: the statusword object is missing.
 	want(t, run(t, "", args("cia402", "state", "9", "--timeout", "20ms")...), 5, "")
 }

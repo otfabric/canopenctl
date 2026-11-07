@@ -88,7 +88,7 @@ func TestCDCF(t *testing.T) {
 		{[]string{"cdcf", "apply", "5", out, "--brs"}, 3, "--brs"},
 		{[]string{"cdcf", "apply", "5", garbage}, 3, "neither"},
 		{[]string{"cdcf", "apply", "5", out, "--eds", "testdata/missing.eds"}, 3, "cannot read"},
-		{[]string{"cdcf", "apply", "5", out, "-i", "slcan:/dev/null"}, 9, "--yes"},
+		{[]string{"cdcf", "apply", "5", out, "-i", "slcan:/dev/null"}, 13, "--yes"},
 		{[]string{"cdcf", "apply", "5", out, "-i", "slcan:/nonexistent", "--yes"}, 4, ""},
 	} {
 		want(t, run(t, "", c.args...), c.code, c.msg)
@@ -145,7 +145,7 @@ func TestStoreRestore(t *testing.T) {
 		{[]string{"store", "5", "--group", "200"}, 3, "invalid group"},
 		{[]string{"store", "5", "--timeout", "0s"}, 3, "--timeout"},
 		{[]string{"restore", "5", "--brs"}, 3, "--brs"},
-		{[]string{"store", "5", "-i", "slcan:/dev/null"}, 9, "--yes"},
+		{[]string{"store", "5", "-i", "slcan:/dev/null"}, 13, "--yes"},
 		{[]string{"store", "5", "-i", "slcan:/nonexistent", "--yes"}, 4, ""},
 	} {
 		args := c.args
@@ -199,12 +199,12 @@ func TestProgram(t *testing.T) {
 		{[]string{"download", "5", file, "--identification", "x"}, 3, "invalid value"},
 		{[]string{"download", "5", "missing.bin"}, 3, "cannot read"},
 		{[]string{"download", "5", empty}, 3, "is empty"},
-		{[]string{"download", "5", file, "-i", "slcan:/dev/null"}, 9, "--yes"},
+		{[]string{"download", "5", file, "-i", "slcan:/dev/null"}, 13, "--yes"},
 		{[]string{"download", "5", file, "-i", "slcan:/nonexistent", "--yes"}, 4, ""},
 		{[]string{"control", "x", "stop"}, 3, "node-ID"},
 		{[]string{"control", "5", "pause"}, 3, "unknown program command"},
 		{[]string{"control", "5", "stop", "--brs"}, 3, "--brs"},
-		{[]string{"control", "5", "stop", "-i", "slcan:/dev/null"}, 9, "--yes"},
+		{[]string{"control", "5", "stop", "-i", "slcan:/dev/null"}, 13, "--yes"},
 		{[]string{"control", "5", "stop", "-i", "slcan:/nonexistent", "--yes"}, 4, ""},
 		{[]string{"status", "x"}, 3, "node-ID"},
 		{[]string{"status", "5", "--program", "300"}, 3, "--program"},
@@ -265,7 +265,7 @@ func TestBoot(t *testing.T) {
 		{[]string{"--slave", "5", "--max-time", "0s"}, 3, "--max-time"},
 		{[]string{"--slave", "5", "--timeout", "0s"}, 3, "--timeout"},
 		{[]string{"--slave", "5", "--brs"}, 3, "--brs"},
-		{[]string{"--slave", "5", "-i", "slcan:/dev/null"}, 9, "--yes"},
+		{[]string{"--slave", "5", "-i", "slcan:/dev/null"}, 13, "--yes"},
 		{[]string{"--slave", "5", "-i", "slcan:/nonexistent", "--yes"}, 4, ""},
 	} {
 		args := append([]string{"boot"}, c.args...)

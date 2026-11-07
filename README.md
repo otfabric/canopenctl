@@ -118,9 +118,9 @@ CANopen devices drive motors, valves and power electronics. canopenctl is
   devices), `mpdo configure/scanner/dispatcher`, `boot`, `store`, `restore`,
   `program download/control` and `simulate` — refuses to run on an interface that is not
   virtual (not `vcan`, `vxcan` or the in-process bus `virtual`) unless
-  `--yes` is given, exit 9. The kind is read from the kernel (rtnetlink); a
+  `--yes` is given, exit 13. The kind is read from the kernel (rtnetlink); a
   serial-line adapter (`slcan:`) always needs `--yes`. Everything is
-  validated before the first frame: an invocation that exits 2, 3, 8 or 9
+  validated before the first frame: an invocation that exits 2, 3, 8, 9 or 13
   has sent nothing.
 - Transmissions are bounded: `sync` and `time` by `--count` (default 10 and
   1) or `--duration` (production without either is refused), SDO transfers

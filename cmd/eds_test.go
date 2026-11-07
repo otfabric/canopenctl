@@ -126,7 +126,7 @@ func TestDCFApply(t *testing.T) {
 	}
 	want(t, run(t, "", "dcf", "apply", "37", "testdata/node37.dcf", "-i", "virtual", "--format", "table"), 0, "KEY")
 	want(t, run(t, "", "dcf", "apply", "0", "testdata/io401.eds", "-i", "virtual"), 3, "NodeID")
-	want(t, run(t, "", "dcf", "apply", "37", "testdata/node37.dcf", "-i", "slcan:/dev/null"), 9, "--yes")
+	want(t, run(t, "", "dcf", "apply", "37", "testdata/node37.dcf", "-i", "slcan:/dev/null"), 13, "--yes")
 	want(t, run(t, "", "dcf", "apply", "37", "testdata/missing.dcf", "-i", "virtual"), 3, "cannot read")
 	want(t, run(t, "", "dcf", "apply", "38", "testdata/node37.dcf", "-i", "virtual", "--timeout", "20ms"), 5, "")
 }
