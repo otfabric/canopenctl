@@ -20,6 +20,8 @@ version as its notes. Add the section before running it.
   missing `--yes` must test for 13; the JSON error is unchanged
   (`"kind": "safety"`, `"code": "confirmation_required"`).
 
+---
+
 ## v0.4.0
 
 **Date:** 2026-11-04
