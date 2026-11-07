@@ -44,6 +44,20 @@ canopenctl mpdo configure 5 --tpdo 2 --mode sam --cob-id 285 -i can0 --yes
 canopenctl sdo read 5 0x1018 1 --fd -i can0                   # CANopen FD: USDO
 ```
 
+## Install
+
+```sh
+curl -fsSL https://get.otfabric.io/canopenctl | sh
+```
+
+```powershell
+irm https://get.otfabric.io/canopenctl.ps1 | iex
+```
+
+Linux (amd64, arm64, armv7), macOS (Intel, Apple silicon) and Windows (amd64, arm64). The installer verifies the release's SHA-256 checksum, installs per user without `sudo` (`~/.local/bin`, Windows `%LOCALAPPDATA%\OTFabric\bin`), and upgrades in place when run again. Pin a version with `OTF_VERSION=x.y.z`; for CI, containers and device images use `OTF_UNMANAGED_INSTALL=<dir>`; all options: [otfabric/install](https://github.com/otfabric/install#options). For offline machines, the archives and checksums are on [Releases](https://github.com/otfabric/canopenctl/releases).
+
+From source (Go 1.26+): `go install github.com/otfabric/canopenctl@latest`
+
 ## Commands
 
 | Group | Commands | Transmits? |
@@ -160,15 +174,6 @@ canopenctl cia402 enable 3 -i vcan0 && canopenctl cia402 move 3 5000 --wait -i v
 canopenctl simulate -i vcan0 --lss --serial 0x1001 &           # unconfigured LSS devices
 canopenctl simulate -i vcan0 --lss --serial 0x1002 &
 canopenctl boot -i vcan0 --lss --slave 10 --expect 10=F7A:C0C7:10000:1001 --slave 11 --expect 11=F7A:C0C7:10000:1002
-```
-
-## Install
-
-Binaries for every platform above are attached to each
-[GitHub release](https://github.com/otfabric/canopenctl/releases). From source:
-
-```sh
-go install github.com/otfabric/canopenctl@latest
 ```
 
 ## Documentation
