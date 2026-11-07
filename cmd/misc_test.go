@@ -5,31 +5,62 @@ package cmd
 import (
 	"context"
 	"os"
-	"runtime/debug"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/otfabric/canopenctl/internal/buildinfo"
 )
 
 func TestVersionAndCompletion(t *testing.T) {
 	fresh(t)
-	want(t, run(t, "", "version"), 0, "canopenctl dev", "go-canopen", "go-canbus")
-	SetBuildMeta("v9.9.9", "v9.9.9", "abc1234", "2026-10-29T00:00:00Z")
+	plat := runtime.Version() + ", " + runtime.GOOS + "/" + runtime.GOARCH
+	r := run(t, "", "version")
+	want(t, r, 0, "canopenctl ", ", built unknown, ", ", "+plat+")")
+	if strings.Count(r.out, "\n") != 1 || strings.Contains(r.out, "tag ") {
+		t.Fatalf("version: %q", r.out)
+	}
+	SetBuildMeta("0.6.0", "v0.6.0", "1802d0f9afe8642d1e278120b76fcdfac967cb9e", "2026-11-05T15:41:49Z")
 	defer SetBuildMeta("", "", "", "")
-	want(t, run(t, "", "version", "--format", "json"), 0, `"version": "v9.9.9"`, `"commit": "abc1234"`, `"goCanopen"`)
-	want(t, run(t, "", "version"), 0, "canopenctl v9.9.9 (abc1234)")
+	bi := buildinfo.Resolve("canopenctl", "0.6.0", "v0.6.0", "1802d0f9afe8642d1e278120b76fcdfac967cb9e", "2026-11-05T15:41:49Z")
+	line, js := bi.Text()+"\n", bi.JSON()+"\n"
+	// The libraries come from the build information, which a test binary
+	// of Go 1.26 does not carry (e2e checks them on the built binary).
+	for _, w := range []string{"canopenctl 0.6.0 (tag v0.6.0, commit 1802d0f9afe8642d1e278120b76fcdfac967cb9e, built 2026-11-05T15:41:49Z, ", ", " + plat + ")"} {
+		if !strings.Contains(line, w) {
+			t.Fatalf("version line %q lacks %q", line, w)
+		}
+	}
+	for _, w := range []string{`{"name":"canopenctl","version":"0.6.0","tag":"v0.6.0","commit":"1802d0f9afe8642d1e278120b76fcdfac967cb9e","built":"2026-11-05T15:41:49Z","libraries":[`, `"go":"` + runtime.Version() + `"`} {
+		if !strings.Contains(js, w) {
+			t.Fatalf("version JSON %q lacks %q", js, w)
+		}
+	}
+	for _, c := range []struct {
+		args []string
+		out  string
+	}{
+		{[]string{"version"}, line},
+		{[]string{"version", "--format", "text"}, line},
+		{[]string{"version", "--format", "table"}, line},
+		{[]string{"version", "--json"}, js},
+		{[]string{"version", "--format", "json"}, js},
+		{[]string{"version", "--json", "--format", "text"}, js},
+	} {
+		if r := run(t, "", c.args...); r.code != 0 || r.out != c.out {
+			t.Fatalf("%v: exit %d\n got %q\nwant %q", c.args, r.code, r.out, c.out)
+		}
+	}
+	t.Setenv("CANOPENCTL_FORMAT", "json")
+	if r := run(t, "", "version"); r.out != js {
+		t.Fatalf("CANOPENCTL_FORMAT=json: %q", r.out)
+	}
+	t.Setenv("CANOPENCTL_FORMAT", "")
 	for _, sh := range []string{"bash", "zsh", "fish", "powershell"} {
 		want(t, run(t, "", "completion", sh), 0, "canopenctl")
 	}
 	want(t, run(t, "", "completion", "tcsh"), 3, "unknown shell")
-	info := &debug.BuildInfo{Deps: []*debug.Module{
-		{Path: "a", Version: "v1.0.0"},
-		{Path: "b", Version: "v0.0.0", Replace: &debug.Module{Path: "../b"}},
-		{Path: "c", Version: "v0.0.0", Replace: &debug.Module{Path: "x", Version: "v1.2.3"}},
-	}}
-	if depVersion(info, "a") != "v1.0.0" || depVersion(info, "b") != "v0.0.0 (replaced by ../b)" || depVersion(info, "c") != "v1.2.3" || depVersion(info, "d") != "(unknown)" {
-		t.Fatal("depVersion")
-	}
 }
 
 func TestUsageAndFormat(t *testing.T) {
@@ -41,7 +72,7 @@ func TestUsageAndFormat(t *testing.T) {
 	want(t, run(t, "", "version", "--slcan-bitrate", "12345"), 3, "--slcan-bitrate")
 	want(t, run(t, "", "--help"), 0, "Read-only by default")
 	t.Setenv("CANOPENCTL_FORMAT", "json")
-	want(t, run(t, "", "version"), 0, `"schemaVersion": "1.0"`)
+	want(t, run(t, "", "version"), 0, `"name":"canopenctl"`)
 	if formatOf([]string{"--format", "nonsense"}) != "text" {
 		t.Fatal("formatOf")
 	}
@@ -91,11 +122,11 @@ func TestBounded(t *testing.T) {
 func TestOutputFormatEnv(t *testing.T) {
 	t.Setenv("CANOPENCTL_FORMAT", "")
 	t.Setenv("CANOPENCTL_OUTPUT_FORMAT", "json")
-	if r := run(t, "", "version"); !strings.Contains(r.out, `"schemaVersion"`) {
+	if r := run(t, "", "version"); !strings.Contains(r.out, `"name":"canopenctl"`) {
 		t.Fatalf("OUTPUT_FORMAT ignored: %q", r.out)
 	}
 	t.Setenv("CANOPENCTL_FORMAT", "text")
-	if r := run(t, "", "version"); strings.Contains(r.out, `"schemaVersion"`) {
+	if r := run(t, "", "version"); strings.Contains(r.out, `"name":"canopenctl"`) {
 		t.Fatalf("FORMAT does not win: %q", r.out)
 	}
 }

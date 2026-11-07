@@ -6,6 +6,47 @@ with the version bump). It computes the tag, builds the binaries for linux
 publishes the GitHub release with the section of this file that matches the
 version as its notes. Add the section before running it.
 
+## v0.6.0
+
+**Date:** 2026-11-07
+**Previous release:** v0.5.0
+
+### Breaking
+
+- `version` prints one line, the same in every OT Fabric CLI (was four
+  lines):
+  `canopenctl 0.6.0 (tag v0.6.0, commit <sha>, built <date>, go-canbus 0.8.0, go-canopen 0.4.1, go-serial 0.2.1, go1.26.x, linux/amd64)`.
+  The version has no leading `v`; the OT Fabric libraries follow the build
+  date. A development build (`go build`, or `make build` off a tag) prints
+  `canopenctl dev (commit <sha>[-dirty], built ..., ...)`; `go install
+  ...@vX.Y.Z` reports that version.
+- `version --format json` (and `CANOPENCTL_FORMAT=json`) writes one compact
+  line without the `schemaVersion` envelope, every key always present:
+  `{"name","version","tag","commit","built","libraries":[{"name","version"}],"go","platform"}`.
+  `goCanopen`, `goCanbus` and `buildDate` are replaced by `libraries` and
+  `built`; `version` left `schemas/result-v1.schema.json`. Upgrade: read
+  `.libraries[] | select(.name == "go-canopen") | .version` instead of
+  `.result.goCanopen`.
+
+### Added
+
+- `version --json`.
+- Shell completion of values for bash, zsh, fish and PowerShell: every flag
+  with a fixed set completes it (`--format`, `--slcan-bitrate`, `sdo
+  --type`, `--service`, `eds convert --to`, `store`/`restore --group`, `lss
+  configure --bit-rate`/`--node-id`, `mpdo configure --mode`), `--eds` and
+  EDS/DCF/concise DCF arguments complete files of their type, `nmt`, `lss
+  switch` and `program control` complete their sub-commands, and free values
+  (node-IDs, indices, durations) no longer offer file names.
+
+### Fixed
+
+- `make build` injects the full commit SHA (was the short one), and the
+  version and tag only on a commit that is exactly a tag (otherwise the
+  binary reports `dev`, not a `git describe` string).
+
+---
+
 ## v0.5.0
 
 **Date:** 2026-11-07

@@ -3,6 +3,14 @@
 All notable changes are listed here; release notes are in
 [RELEASE.md](RELEASE.md).
 
+## v0.6.0 (2026-11-07)
+
+`version` prints one line (`canopenctl 0.6.0 (tag v0.6.0, commit ..., built
+..., go-canbus ..., go-canopen ..., go..., os/arch)`); `version --json` and
+`--format json` print one compact JSON object (`name`, `version`, `tag`,
+`commit`, `built`, `libraries`, `go`, `platform`) without the envelope. Shell completion of flag values, file
+types and positional sub-commands for bash, zsh, fish and PowerShell.
+
 ## v0.4.0 (2026-11-04)
 
 Go 1.26, go-canopen v0.4.1, go-canbus v0.8.0. SAST hardening: integer

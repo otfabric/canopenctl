@@ -10,11 +10,10 @@ import (
 	"io"
 	"os"
 	"os/signal"
-	"runtime"
-	"runtime/debug"
 	"strings"
 	"syscall"
 
+	"github.com/otfabric/canopenctl/internal/buildinfo"
 	"github.com/otfabric/canopenctl/internal/errs"
 	"github.com/otfabric/canopenctl/internal/output"
 	"github.com/otfabric/go-canbus/slcan"
@@ -120,9 +119,6 @@ func newRoot(a *app) *cobra.Command {
 		},
 	}
 	root.PersistentFlags().String("format", formatDefault(), "Output format: text, json or table (env CANOPENCTL_FORMAT)")
-	_ = root.RegisterFlagCompletionFunc("format", func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
-		return []string{"text\thuman-readable", "json\tversioned JSON", "table\taligned columns"}, cobra.ShellCompDirectiveNoFileComp
-	})
 	root.PersistentFlags().Int("slcan-bitrate", 500000, "Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's)")
 	root.PersistentFlags().Int("slcan-baud", 115200, "Serial baud rate of an slcan adapter (USB adapters ignore it)")
 	root.AddCommand(
@@ -131,6 +127,7 @@ func newRoot(a *app) *cobra.Command {
 		newCiA402Cmd(a), newLSSCmd(a), newMPDOCmd(a), newBootCmd(a), newCDCFCmd(a), newStoreCmd(a, false), newStoreCmd(a, true),
 		newProgramCmd(a), newSimulateCmd(a), newVersionCmd(a), newCompletionCmd(),
 	)
+	registerCompletions(root)
 	return root
 }
 
@@ -213,59 +210,30 @@ func Execute() int {
 	return Run(ctx, os.Args[1:], os.Stdin, os.Stdout, os.Stderr)
 }
 
-type versionResult struct {
-	Version   string `json:"version"`
-	Tag       string `json:"tag,omitempty"`
-	Commit    string `json:"commit,omitempty"`
-	BuildDate string `json:"buildDate,omitempty"`
-	GoCanopen string `json:"goCanopen"`
-	GoCanbus  string `json:"goCanbus"`
-	Go        string `json:"go"`
-	Platform  string `json:"platform"`
-}
-
-func (v versionResult) Text() string {
-	s := "canopenctl " + v.Version
-	if v.Commit != "" {
-		s += " (" + v.Commit + ")"
-	}
-	return s + "\ngo-canopen " + v.GoCanopen + "\ngo-canbus " + v.GoCanbus + "\n" + v.Go + " " + v.Platform
-}
-
-// depVersion returns the version of a dependency in the build info.
-func depVersion(info *debug.BuildInfo, path string) string {
-	for _, d := range info.Deps {
-		if d.Path == path {
-			if d.Replace != nil {
-				if d.Replace.Version != "" {
-					return d.Replace.Version
-				}
-				return d.Version + " (replaced by " + d.Replace.Path + ")"
-			}
-			return d.Version
-		}
-	}
-	return "(unknown)"
-}
-
 func newVersionCmd(a *app) *cobra.Command {
-	return &cobra.Command{
+	var asJSON bool
+	c := &cobra.Command{
 		Use:   "version",
-		Short: "Print the version of canopenctl, go-canopen and go-canbus",
-		Args:  cobra.NoArgs,
+		Short: "Print the version of canopenctl",
+		Long: `version prints one line: the version, the git tag, the commit, the build
+date, the OT Fabric libraries it is built on, the Go version and the
+platform. --json (or --format json) prints the same as one JSON object:
+name, version, tag, commit, built, libraries, go, platform.`,
+		Example: `  canopenctl version
+  canopenctl version --json`,
+		Args: cobra.NoArgs,
 		RunE: func(*cobra.Command, []string) error {
-			v := versionResult{Version: buildMeta.version, Tag: buildMeta.tag, Commit: buildMeta.commit, BuildDate: buildMeta.buildDate,
-				GoCanopen: "(unknown)", GoCanbus: "(unknown)", Go: runtime.Version(), Platform: runtime.GOOS + "/" + runtime.GOARCH}
-			if v.Version == "" {
-				v.Version = "dev"
+			i := buildinfo.Resolve("canopenctl", buildMeta.version, buildMeta.tag, buildMeta.commit, buildMeta.buildDate)
+			line := i.Text()
+			if asJSON || a.format == output.JSON {
+				line = i.JSON()
 			}
-			if info, ok := debug.ReadBuildInfo(); ok {
-				v.GoCanopen = depVersion(info, "github.com/otfabric/go-canopen")
-				v.GoCanbus = depVersion(info, "github.com/otfabric/go-canbus")
-			}
-			return a.emit("version", v)
+			_, err := fmt.Fprintln(a.out, line)
+			return err
 		},
 	}
+	c.Flags().BoolVar(&asJSON, "json", false, "Print the version as one JSON object")
+	return c
 }
 
 func newCompletionCmd() *cobra.Command {

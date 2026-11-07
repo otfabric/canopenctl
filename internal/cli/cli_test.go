@@ -463,3 +463,11 @@ func FuzzParseNumbers(f *testing.F) {
 		}
 	})
 }
+
+func TestTypeNamesParse(t *testing.T) {
+	for _, n := range TypeNames() {
+		if _, err := ParseType(n); err != nil {
+			t.Errorf("TypeNames lists %q, which ParseType refuses: %v", n, err)
+		}
+	}
+}

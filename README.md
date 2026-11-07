@@ -32,6 +32,8 @@ From source (Go 1.26+): `go install github.com/otfabric/canopenctl@latest`
 
 ### Shell completion
 
+Commands, flags, the values of flags with a fixed set (`--format`, `--type`, `--service`, `--group`, `--bit-rate`, ...) and EDS/DCF file arguments complete.
+
 ```sh
 # bash (needs the bash-completion package)
 mkdir -p ~/.local/share/bash-completion/completions

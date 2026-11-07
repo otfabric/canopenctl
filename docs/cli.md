@@ -54,7 +54,7 @@ Available Commands:
   store       Make a node save its parameters (0x1010, needs --yes off virtual interfaces)
   sync        Produce SYNC messages (needs --yes off virtual interfaces)
   time        Send the TIME stamp (needs --yes off virtual interfaces)
-  version     Print the version of canopenctl, go-canopen and go-canbus
+  version     Print the version of canopenctl
 
 Flags:
       --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
@@ -2037,13 +2037,21 @@ Global Flags:
 ## canopenctl version
 
 ```text
-Print the version of canopenctl, go-canopen and go-canbus
+version prints one line: the version, the git tag, the commit, the build
+date, the OT Fabric libraries it is built on, the Go version and the
+platform. --json (or --format json) prints the same as one JSON object:
+name, version, tag, commit, built, libraries, go, platform.
 
 Usage:
   canopenctl version [flags]
 
+Examples:
+  canopenctl version
+  canopenctl version --json
+
 Flags:
   -h, --help   help for version
+      --json   Print the version as one JSON object
 
 Global Flags:
       --format string       Output format: text, json or table (env CANOPENCTL_FORMAT) (default "text")
