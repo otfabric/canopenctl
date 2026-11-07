@@ -129,3 +129,30 @@ func TestCompletionEverywhere(t *testing.T) {
 		}
 	}
 }
+
+// registerCompletions keeps a completion a command registered itself and
+// gives the other value flags one.
+func TestRegisterCompletionsKeepsOwn(t *testing.T) {
+	root := &cobra.Command{Use: "canopenctl"}
+	sub := &cobra.Command{Use: "x", RunE: func(*cobra.Command, []string) error { return nil }}
+	sub.Flags().String("own", "", "")
+	sub.Flags().String("other", "", "")
+	own := func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
+		return []string{"mine"}, cobra.ShellCompDirectiveKeepOrder
+	}
+	if err := sub.RegisterFlagCompletionFunc("own", own); err != nil {
+		t.Fatal(err)
+	}
+	root.AddCommand(sub)
+	registerCompletions(root)
+	fn, ok := sub.GetFlagCompletionFunc("own")
+	if !ok {
+		t.Fatal("--own: no completion")
+	}
+	if vals, d := fn(sub, nil, ""); len(vals) != 1 || vals[0] != "mine" || d != cobra.ShellCompDirectiveKeepOrder {
+		t.Errorf("--own: %q %d, want the registered completion", vals, d)
+	}
+	if _, ok := sub.GetFlagCompletionFunc("other"); !ok {
+		t.Error("--other: no completion")
+	}
+}
