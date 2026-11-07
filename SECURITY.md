@@ -2,8 +2,18 @@
 
 ## Reporting
 
-Report vulnerabilities privately through GitHub's security advisories of
-otfabric/canopenctl ("Report a vulnerability"), not in public issues.
+Report vulnerabilities privately, not in public issues: email
+**security@otfabric.io**, or open a private advisory through GitHub's
+security advisories of otfabric/canopenctl ("Report a vulnerability"). Include
+a description, steps to reproduce, the affected version (`canopenctl version`
+output) and the impact you see.
+
+## Supported versions
+
+| Version | Supported |
+|---------|-----------|
+| 0.4.x | Yes |
+| < 0.4 | No |
 
 ## Operational safety
 
