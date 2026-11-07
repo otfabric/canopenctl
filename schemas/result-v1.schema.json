@@ -8,7 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {"type": "string", "pattern": "^1\\."},
-    "command": {"enum": ["version", "sdo read", "sdo write", "sdo dump", "nmt", "scan", "sync", "time", "pdo show", "pdo map",
+    "command": {"enum": ["sdo read", "sdo write", "sdo dump", "nmt", "scan", "sync", "time", "pdo show", "pdo map",
       "eds validate", "eds show", "eds convert", "eds generate", "dcf apply", "dcf export",
       "cia402 state", "cia402 enable", "cia402 disable", "cia402 fault-reset", "cia402 quick-stop", "cia402 mode", "cia402 move", "cia402 velocity",
       "lss switch", "lss select", "lss inquire", "lss configure", "lss activate", "lss identify", "lss fastscan", "lss assign-all",
@@ -81,10 +81,6 @@
     }
   },
   "allOf": [
-    {"if": {"properties": {"command": {"const": "version"}}}, "then": {"properties": {"result": {
-      "required": ["version", "goCanopen", "goCanbus", "go", "platform"],
-      "properties": {"version": {"type": "string"}, "tag": {"type": "string"}, "commit": {"type": "string"}, "buildDate": {"type": "string"},
-        "goCanopen": {"type": "string"}, "goCanbus": {"type": "string"}, "go": {"type": "string"}, "platform": {"type": "string"}}}}}},
     {"if": {"properties": {"command": {"enum": ["sdo read", "sdo write"]}}}, "then": {"properties": {"result": {"$ref": "#/$defs/sdoValue"}}}},
     {"if": {"properties": {"command": {"const": "sdo dump"}}}, "then": {"properties": {"result": {
       "required": ["node", "eds", "objects", "read", "failed"],

@@ -137,7 +137,16 @@ func TestErrorDocuments(t *testing.T) {
 	want(t, r, 13, `"code": "confirmation_required"`)
 	want(t, run(t, "", "sdo", "read", "500", "1000", "0", "-i", "virtual"), 3, "invalid node-ID")
 	want(t, run(t, "", "sdo", "read", "5", "1000", "0", "-i", "virtual", "--timeout", "20ms"), 5, "timeout")
-	want(t, run(t, "", "version"), 0, "canopenctl", "go-canopen")
+	want(t, run(t, "", "version"), 0, "canopenctl ", ", built ")
+	r = run(t, "", "version", "--json")
+	want(t, r, 0)
+	if d := doc(t, r.out); d["name"] != "canopenctl" || d["version"] == "" || d["commit"] == "" || d["built"] == "" {
+		t.Fatal(r.out)
+	}
+	for _, sh := range []string{"bash", "zsh", "fish", "powershell"} {
+		want(t, run(t, "", "completion", sh), 0, "canopenctl")
+	}
+	want(t, run(t, "", "__complete", "version", "--format", ""), 0, "text", "json", "table")
 }
 
 // TestSimulateVirtual: a node on the process's own virtual bus starts,

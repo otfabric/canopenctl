@@ -8,6 +8,7 @@ CANopen operation is a library call.
 main.go                 build metadata (ldflags), cmd.Execute
 cmd/                    one file per command group (cobra)
   root.go               Run(ctx, args, stdin, stdout, stderr) → exit code; --format; version; completion
+  completion.go         value completion of every flag and positional argument (fixed sets, file types, none)
   transport.go          -i: socketcan.Open, slcan (serial or TCP), a port of the in-process virtual bus;
                         shared --interface/--yes/--fd and SDO client flags; remote (SDO, or USDO with --fd)
   monitor.go            monitor, decode                    → dissect.Tracker, capture readers
@@ -26,6 +27,7 @@ cmd/                    one file per command group (cobra)
                                                               master.ConfigureConcise/StoreParameters/RestoreDefaults/DownloadProgram
   simulate.go           simulate                            → node.New (+ WithDrive, WithLSS, WithFD, WithStore, WithProgram)
 internal/cli            node-IDs, indices, data types, values, PDO mappings, EDS and trace loading, transmit safety
+internal/buildinfo      version line and JSON from the ldflags values, else the Go build information
 internal/output         text, table, JSON envelope, JSON Lines streams
 internal/errs           kinds, stable codes, exit codes, classification of go-canbus/go-canopen errors
 schemas/                JSON Schemas of the result, record and error documents

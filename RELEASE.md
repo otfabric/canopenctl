@@ -6,6 +6,42 @@ with the version bump). It computes the tag, builds the binaries for linux
 publishes the GitHub release with the section of this file that matches the
 version as its notes. Add the section before running it.
 
+## v0.6.0
+
+**Date:** 2026-11-07
+**Previous release:** v0.5.0
+
+### Breaking
+
+- `version` prints one line, the same in every OT Fabric CLI:
+  `canopenctl 0.6.0 (tag v0.6.0, commit <sha>, built <date>, go1.26.x, linux/amd64)`
+  (was four lines with the go-canopen and go-canbus versions). The version
+  has no leading `v`; a development build prints `canopenctl dev (commit
+  <sha>[-dirty], built unknown, ...)`, and `go install ...@vX.Y.Z` reports
+  that version.
+- `version --format json` (and `CANOPENCTL_FORMAT=json`) writes one compact
+  line without the `schemaVersion` envelope:
+  `{"name","version","tag","commit","built","go","platform"}`, every key
+  always present. `goCanopen`, `goCanbus` and `buildDate` are gone;
+  `version` left `schemas/result-v1.schema.json`.
+
+### Added
+
+- `version --json`.
+- Shell completion of values for bash, zsh, fish and PowerShell: every flag
+  with a fixed set completes it (`--format`, `--slcan-bitrate`, `sdo
+  --type`, `--service`, `eds convert --to`, `store`/`restore --group`, `lss
+  configure --bit-rate`/`--node-id`, `mpdo configure --mode`), `--eds` and
+  EDS/DCF/concise DCF arguments complete files of their type, `nmt`, `lss
+  switch` and `program control` complete their sub-commands, and free values
+  (node-IDs, indices, durations) no longer offer file names.
+
+### Fixed
+
+- `make build` injects the full commit SHA (was the short one).
+
+---
+
 ## v0.5.0
 
 **Date:** 2026-11-07

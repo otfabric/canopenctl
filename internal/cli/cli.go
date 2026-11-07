@@ -12,6 +12,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -160,6 +161,20 @@ var typeAliases = map[string]canopen.DataType{
 	"os": canopen.OctetString, "octets": canopen.OctetString, "hex": canopen.OctetString, "bytes": canopen.OctetString,
 	"us": canopen.UnicodeString, "unicode": canopen.UnicodeString,
 	"domain": canopen.Domain, "tod": canopen.TimeOfDay, "td": canopen.TimeDifference,
+}
+
+// TypeNames returns the --type values to complete: the CiA 301 names of
+// the types that can be transferred as values, then the short aliases.
+func TypeNames() []string {
+	names := []string{"BOOLEAN", "INTEGER8", "INTEGER16", "INTEGER24", "INTEGER32", "INTEGER40", "INTEGER48", "INTEGER56", "INTEGER64",
+		"UNSIGNED8", "UNSIGNED16", "UNSIGNED24", "UNSIGNED32", "UNSIGNED40", "UNSIGNED48", "UNSIGNED56", "UNSIGNED64",
+		"REAL32", "REAL64", "VISIBLE_STRING", "OCTET_STRING", "UNICODE_STRING", "TIME_OF_DAY", "TIME_DIFFERENCE", "DOMAIN"}
+	aliases := make([]string, 0, len(typeAliases))
+	for k := range typeAliases {
+		aliases = append(aliases, k)
+	}
+	sort.Strings(aliases)
+	return append(names, aliases...)
 }
 
 // ParseType parses a --type value: a CiA 301 name (UNSIGNED32), an alias

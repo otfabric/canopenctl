@@ -112,7 +112,6 @@ func TestSchemasCommands(t *testing.T) {
 	}
 	v := []string{"-i", "virtual"}
 	cmds := [][]string{
-		{"version"},
 		{"sdo", "read", "5", "0x1018", "1"},
 		{"sdo", "read", "5", "0x1018", "1", "--eds", "testdata/io401.eds"},
 		{"sdo", "read", "5", "0x5FFF", "0"},

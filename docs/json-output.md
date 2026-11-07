@@ -1,7 +1,7 @@
 # JSON output
 
 `--format json` (or `CANOPENCTL_FORMAT=json`; `CANOPENCTL_OUTPUT_FORMAT` is accepted too, `_FORMAT` wins) makes every command machine
-readable. Every document carries `"schemaVersion": "1.0"`; the major version
+readable. Every document (except `version`, below) carries `"schemaVersion": "1.0"`; the major version
 changes only with an incompatible change, and fields may be added within
 1.x (ignore unknown fields). Schemas:
 [schemas/result-v1.schema.json](../schemas/result-v1.schema.json) (with the
@@ -69,7 +69,15 @@ Commands with one result write one indented document:
 | `store`, `restore` | `node`, `action`, `group`, `groupName`, `key` (the sub-object written), `reset` (`restore --reset`) |
 | `program download`, `program control`, `program status` | `node`, `program`, `action` (`download`, `status`, or the control command), `file`, `bytes`, `identification`, `state`, `stateValue`, `flashStatus`, `flashText`, `elapsedMs` |
 | `cia402 state` and the other `cia402` commands | `node`, `action` (not for state), `state` (CiA 402 name), `statusword`, `status` (names of the set statusword bits), `mode` and `modeName`, `position`, `velocity` (when the drive has the objects), `faultCode` and `faultText` in Fault |
-| `version` | `version`, `tag`, `commit`, `buildDate`, `goCanopen`, `goCanbus`, `go`, `platform` |
+
+`version` is the exception: `version --json` (or `version` with `--format
+json`) writes one compact line without the envelope, the same in every OT
+Fabric CLI, every key always present (`tag` is `""` without a tag;
+`version` is `dev` and `commit`, `built` are `unknown` when not known):
+
+```json
+{"name":"canopenctl","version":"0.6.0","tag":"v0.6.0","commit":"1802d0f9afe8642d1e278120b76fcdfac967cb9e","built":"2026-11-05T15:41:49Z","go":"go1.26.0","platform":"linux/amd64"}
+```
 
 ## Streams
 

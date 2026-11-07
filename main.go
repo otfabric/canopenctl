@@ -13,7 +13,7 @@ import (
 
 // Injected at link time: -X main.version=... etc.
 var (
-	version   = "dev"
+	version   = ""
 	tag       = ""
 	commit    = ""
 	buildDate = ""
