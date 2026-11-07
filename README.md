@@ -16,6 +16,22 @@ programs, operate CiA 402 drives and simulate complete CANopen devices.
 Built on [go-canopen](https://github.com/otfabric/go-canopen) and
 [go-canbus](https://github.com/otfabric/go-canbus); pure Go, one static binary.
 
+## Install
+
+```sh
+curl -fsSL https://get.otfabric.io/canopenctl | sh
+```
+
+```powershell
+irm https://get.otfabric.io/canopenctl.ps1 | iex
+```
+
+Linux (amd64, arm64, armv7), macOS (Intel, Apple silicon) and Windows (amd64, arm64). The installer verifies the release's SHA-256 checksum, installs per user without `sudo` (`~/.local/bin`, Windows `%LOCALAPPDATA%\OTFabric\bin`), and upgrades in place when run again. Pin a version with `OTF_VERSION=x.y.z`; for CI, containers and device images use `OTF_UNMANAGED_INSTALL=<dir>`; all options: [otfabric/install](https://github.com/otfabric/install#options). For offline machines, the archives and checksums are on [Releases](https://github.com/otfabric/canopenctl/releases).
+
+From source (Go 1.26+): `go install github.com/otfabric/canopenctl@latest`
+
+## At a glance
+
 ```sh
 canopenctl monitor -i can0                                    # decode live traffic, passively
 canopenctl scan -i can0                                       # nodes 1..127: device type and identity
@@ -43,20 +59,6 @@ canopenctl program download 5 firmware.bin --crc32 -i can0 --yes
 canopenctl mpdo configure 5 --tpdo 2 --mode sam --cob-id 285 -i can0 --yes
 canopenctl sdo read 5 0x1018 1 --fd -i can0                   # CANopen FD: USDO
 ```
-
-## Install
-
-```sh
-curl -fsSL https://get.otfabric.io/canopenctl | sh
-```
-
-```powershell
-irm https://get.otfabric.io/canopenctl.ps1 | iex
-```
-
-Linux (amd64, arm64, armv7), macOS (Intel, Apple silicon) and Windows (amd64, arm64). The installer verifies the release's SHA-256 checksum, installs per user without `sudo` (`~/.local/bin`, Windows `%LOCALAPPDATA%\OTFabric\bin`), and upgrades in place when run again. Pin a version with `OTF_VERSION=x.y.z`; for CI, containers and device images use `OTF_UNMANAGED_INSTALL=<dir>`; all options: [otfabric/install](https://github.com/otfabric/install#options). For offline machines, the archives and checksums are on [Releases](https://github.com/otfabric/canopenctl/releases).
-
-From source (Go 1.26+): `go install github.com/otfabric/canopenctl@latest`
 
 ## Commands
 
