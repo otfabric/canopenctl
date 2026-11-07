@@ -13,8 +13,10 @@ export GOWORK := off
 APP_NAME    := canopenctl
 BIN_DIR     := bin
 RELEASE_DIR := release
-VERSION     ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+# VERSION and TAG only on a commit that is exactly a tag; otherwise empty, and
+# the binary reports dev.
 TAG         ?= $(shell git describe --tags --exact-match 2>/dev/null)
+VERSION     ?= $(patsubst v%,%,$(TAG))
 COMMIT      ?= $(shell git rev-parse HEAD 2>/dev/null)
 BUILD_DATE  ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS     := -ldflags "-s -w -X 'main.version=$(VERSION)' -X 'main.tag=$(TAG)' -X 'main.commit=$(COMMIT)' -X 'main.buildDate=$(BUILD_DATE)'"
@@ -43,7 +45,7 @@ build: ## Build ./bin/canopenctl
 build-all: ## Build for every release platform into ./release
 	@mkdir -p $(RELEASE_DIR)
 	@for p in $(PLATFORMS); do os=$${p%/*}; cpu=$${p#*/}; ext=; [ $$os = windows ] && ext=.exe; \
-		name=$(APP_NAME)-$(VERSION)-$$os-$$cpu; [ $$cpu = arm ] && name=$(APP_NAME)-$(VERSION)-$$os-armv7; \
+		name=$(APP_NAME)-$(or $(VERSION),dev)-$$os-$$cpu; [ $$cpu = arm ] && name=$(APP_NAME)-$(or $(VERSION),dev)-$$os-armv7; \
 		echo "build $$name$$ext"; GOOS=$$os GOARCH=$$cpu GOARM=7 go build $(LDFLAGS) -o $(RELEASE_DIR)/$$name$$ext . || exit 1; done
 
 test: ## Run the tests with the race detector (vcan tests skip without vcan0)

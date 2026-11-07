@@ -27,7 +27,7 @@ cmd/                    one file per command group (cobra)
                                                               master.ConfigureConcise/StoreParameters/RestoreDefaults/DownloadProgram
   simulate.go           simulate                            → node.New (+ WithDrive, WithLSS, WithFD, WithStore, WithProgram)
 internal/cli            node-IDs, indices, data types, values, PDO mappings, EDS and trace loading, transmit safety
-internal/buildinfo      version line and JSON from the ldflags values, else the Go build information
+internal/buildinfo      version line and JSON from the ldflags values, else the Go build information; OT Fabric libraries from its Deps
 internal/output         text, table, JSON envelope, JSON Lines streams
 internal/errs           kinds, stable codes, exit codes, classification of go-canbus/go-canopen errors
 schemas/                JSON Schemas of the result, record and error documents

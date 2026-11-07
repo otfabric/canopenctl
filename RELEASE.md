@@ -13,17 +13,20 @@ version as its notes. Add the section before running it.
 
 ### Breaking
 
-- `version` prints one line, the same in every OT Fabric CLI:
-  `canopenctl 0.6.0 (tag v0.6.0, commit <sha>, built <date>, go1.26.x, linux/amd64)`
-  (was four lines with the go-canopen and go-canbus versions). The version
-  has no leading `v`; a development build prints `canopenctl dev (commit
-  <sha>[-dirty], built unknown, ...)`, and `go install ...@vX.Y.Z` reports
-  that version.
+- `version` prints one line, the same in every OT Fabric CLI (was four
+  lines):
+  `canopenctl 0.6.0 (tag v0.6.0, commit <sha>, built <date>, go-canbus 0.8.0, go-canopen 0.4.1, go-serial 0.2.1, go1.26.x, linux/amd64)`.
+  The version has no leading `v`; the OT Fabric libraries follow the build
+  date. A development build (`go build`, or `make build` off a tag) prints
+  `canopenctl dev (commit <sha>[-dirty], built ..., ...)`; `go install
+  ...@vX.Y.Z` reports that version.
 - `version --format json` (and `CANOPENCTL_FORMAT=json`) writes one compact
-  line without the `schemaVersion` envelope:
-  `{"name","version","tag","commit","built","go","platform"}`, every key
-  always present. `goCanopen`, `goCanbus` and `buildDate` are gone;
-  `version` left `schemas/result-v1.schema.json`.
+  line without the `schemaVersion` envelope, every key always present:
+  `{"name","version","tag","commit","built","libraries":[{"name","version"}],"go","platform"}`.
+  `goCanopen`, `goCanbus` and `buildDate` are replaced by `libraries` and
+  `built`; `version` left `schemas/result-v1.schema.json`. Upgrade: read
+  `.libraries[] | select(.name == "go-canopen") | .version` instead of
+  `.result.goCanopen`.
 
 ### Added
 
@@ -38,7 +41,9 @@ version as its notes. Add the section before running it.
 
 ### Fixed
 
-- `make build` injects the full commit SHA (was the short one).
+- `make build` injects the full commit SHA (was the short one), and the
+  version and tag only on a commit that is exactly a tag (otherwise the
+  binary reports `dev`, not a `git describe` string).
 
 ---
 

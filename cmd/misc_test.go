@@ -9,21 +9,32 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/otfabric/canopenctl/internal/buildinfo"
 )
 
 func TestVersionAndCompletion(t *testing.T) {
 	fresh(t)
 	plat := runtime.Version() + ", " + runtime.GOOS + "/" + runtime.GOARCH
 	r := run(t, "", "version")
-	want(t, r, 0, "canopenctl ", ", built unknown, "+plat+")")
+	want(t, r, 0, "canopenctl ", ", built unknown, go-canbus ", ", go-canopen ", ", "+plat+")")
 	if strings.Count(r.out, "\n") != 1 || strings.Contains(r.out, "tag ") {
 		t.Fatalf("version: %q", r.out)
 	}
 	SetBuildMeta("0.6.0", "v0.6.0", "1802d0f9afe8642d1e278120b76fcdfac967cb9e", "2026-11-05T15:41:49Z")
 	defer SetBuildMeta("", "", "", "")
-	line := "canopenctl 0.6.0 (tag v0.6.0, commit 1802d0f9afe8642d1e278120b76fcdfac967cb9e, built 2026-11-05T15:41:49Z, " + plat + ")\n"
-	js := `{"name":"canopenctl","version":"0.6.0","tag":"v0.6.0","commit":"1802d0f9afe8642d1e278120b76fcdfac967cb9e","built":"2026-11-05T15:41:49Z","go":"` +
-		runtime.Version() + `","platform":"` + runtime.GOOS + "/" + runtime.GOARCH + `"}` + "\n"
+	bi := buildinfo.Resolve("canopenctl", "0.6.0", "v0.6.0", "1802d0f9afe8642d1e278120b76fcdfac967cb9e", "2026-11-05T15:41:49Z")
+	line, js := bi.Text()+"\n", bi.JSON()+"\n"
+	for _, w := range []string{"canopenctl 0.6.0 (tag v0.6.0, commit 1802d0f9afe8642d1e278120b76fcdfac967cb9e, built 2026-11-05T15:41:49Z, go-canbus ", ", go-canopen ", ", " + plat + ")"} {
+		if !strings.Contains(line, w) {
+			t.Fatalf("version line %q lacks %q", line, w)
+		}
+	}
+	for _, w := range []string{`{"name":"canopenctl","version":"0.6.0","tag":"v0.6.0","commit":"1802d0f9afe8642d1e278120b76fcdfac967cb9e","built":"2026-11-05T15:41:49Z","libraries":[{"name":"go-canbus","version":"`, `{"name":"go-canopen","version":"`, `"go":"` + runtime.Version() + `"`} {
+		if !strings.Contains(js, w) {
+			t.Fatalf("version JSON %q lacks %q", js, w)
+		}
+	}
 	for _, c := range []struct {
 		args []string
 		out  string

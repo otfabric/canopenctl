@@ -96,14 +96,64 @@ func TestJSON(t *testing.T) {
 	withBuildInfo(t, nil)
 	got := Resolve("canopenctl", "0.6.0", "v0.6.0", sha, "2026-11-05T15:41:49Z").JSON()
 	want := `{"name":"canopenctl","version":"0.6.0","tag":"v0.6.0","commit":"` + sha +
-		`","built":"2026-11-05T15:41:49Z","go":"` + runtime.Version() + `","platform":"` + runtime.GOOS + "/" + runtime.GOARCH + `"}`
+		`","built":"2026-11-05T15:41:49Z","libraries":[],"go":"` + runtime.Version() + `","platform":"` + runtime.GOOS + "/" + runtime.GOARCH + `"}`
 	if got != want {
 		t.Fatalf("got  %s\nwant %s", got, want)
 	}
 	got = Resolve("canopenctl", "", "", "", "").JSON()
-	want = `{"name":"canopenctl","version":"dev","tag":"","commit":"unknown","built":"unknown","go":"` +
+	want = `{"name":"canopenctl","version":"dev","tag":"","commit":"unknown","built":"unknown","libraries":[],"go":"` +
 		runtime.Version() + `","platform":"` + runtime.GOOS + "/" + runtime.GOARCH + `"}`
 	if got != want {
 		t.Fatalf("got  %s\nwant %s", got, want)
+	}
+}
+
+func TestLibrariesFormatting(t *testing.T) {
+	base := Info{Name: "canopenctl", Version: "0.6.0", Tag: "v0.6.0", Commit: sha, Built: "2026-11-05T15:41:49Z", Go: "go1.27.3", Platform: "darwin/arm64"}
+	head := "canopenctl 0.6.0 (tag v0.6.0, commit " + sha + ", built 2026-11-05T15:41:49Z, "
+	jhead := `{"name":"canopenctl","version":"0.6.0","tag":"v0.6.0","commit":"` + sha + `","built":"2026-11-05T15:41:49Z","libraries":`
+	jtail := `,"go":"go1.27.3","platform":"darwin/arm64"}`
+	for _, c := range []struct {
+		libs       []Library
+		text, json string
+	}{
+		{nil, "", `[]`},
+		{[]Library{}, "", `[]`},
+		{[]Library{{"go-canbus", "0.8.0"}}, "go-canbus 0.8.0, ", `[{"name":"go-canbus","version":"0.8.0"}]`},
+		{[]Library{{"go-canbus", "0.8.0"}, {"go-canopen", "0.5.1"}}, "go-canbus 0.8.0, go-canopen 0.5.1, ",
+			`[{"name":"go-canbus","version":"0.8.0"},{"name":"go-canopen","version":"0.5.1"}]`},
+	} {
+		i := base
+		i.Libraries = c.libs
+		if got, want := i.Text(), head+c.text+"go1.27.3, darwin/arm64)"; got != want {
+			t.Errorf("text\n got  %q\n want %q", got, want)
+		}
+		if got, want := i.JSON(), jhead+c.json+jtail; got != want {
+			t.Errorf("json\n got  %s\n want %s", got, want)
+		}
+	}
+}
+
+func TestLibrariesFromBuildInfo(t *testing.T) {
+	withBuildInfo(t, &debug.BuildInfo{
+		Main: debug.Module{Path: "github.com/otfabric/go-self", Version: "(devel)"},
+		Deps: []*debug.Module{
+			{Path: "github.com/spf13/cobra", Version: "v1.10.1"},
+			{Path: "github.com/otfabric/go-canopen", Version: "v0.5.1"},
+			{Path: "github.com/otfabric/go-self", Version: "v1.0.0"},
+			{Path: "github.com/otfabric/go-canbus", Version: "v0.8.0", Replace: &debug.Module{Path: "../go-canbus"}},
+			{Path: "github.com/otfabric/go-alpha", Version: "v0.1.0", Replace: &debug.Module{Path: "x", Version: "v0.2.0-0.20261107212138-ed2b5bc8f960"}},
+			{Path: "github.com/otfabric/canbusctl", Version: "v0.9.0"},
+		},
+	})
+	got := Resolve("canopenctl", "0.6.0", "", sha, "").Libraries
+	want := []Library{{"go-alpha", "0.2.0-0.20261107212138-ed2b5bc8f960"}, {"go-canbus", "0.8.0"}, {"go-canopen", "0.5.1"}}
+	if len(got) != len(want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	for k := range want {
+		if got[k] != want[k] {
+			t.Fatalf("got %v, want %v", got, want)
+		}
 	}
 }

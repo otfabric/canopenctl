@@ -216,8 +216,9 @@ func newVersionCmd(a *app) *cobra.Command {
 		Use:   "version",
 		Short: "Print the version of canopenctl",
 		Long: `version prints one line: the version, the git tag, the commit, the build
-date, the Go version and the platform. --json (or --format json) prints the
-same as one JSON object: name, version, tag, commit, built, go, platform.`,
+date, the OT Fabric libraries it is built on, the Go version and the
+platform. --json (or --format json) prints the same as one JSON object:
+name, version, tag, commit, built, libraries, go, platform.`,
 		Example: `  canopenctl version
   canopenctl version --json`,
 		Args: cobra.NoArgs,

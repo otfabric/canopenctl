@@ -6,9 +6,9 @@ All notable changes are listed here; release notes are in
 ## v0.6.0 (2026-11-07)
 
 `version` prints one line (`canopenctl 0.6.0 (tag v0.6.0, commit ..., built
-..., go..., os/arch)`); `version --json` and `--format json` print one
-compact JSON object (`name`, `version`, `tag`, `commit`, `built`, `go`,
-`platform`) without the envelope. Shell completion of flag values, file
+..., go-canbus ..., go-canopen ..., go..., os/arch)`); `version --json` and
+`--format json` print one compact JSON object (`name`, `version`, `tag`,
+`commit`, `built`, `libraries`, `go`, `platform`) without the envelope. Shell completion of flag values, file
 types and positional sub-commands for bash, zsh, fish and PowerShell.
 
 ## v0.4.0 (2026-11-04)
