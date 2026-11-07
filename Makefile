@@ -3,7 +3,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: help all build build-all test test-vcan coverage e2e interop cover cross lint lint-ci fmt fmt-check vet vuln fuzz docs check install clean coverage-pkg-check
+.PHONY: help all build build-all test test-vcan coverage e2e interop cover cross lint lint-ci fmt fmt-check vet vuln fuzz docs docs-check check install clean coverage-pkg-check
 
 help: ## This help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-14s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -19,6 +19,8 @@ COMMIT      ?= $(shell git rev-parse --short HEAD 2>/dev/null)
 BUILD_DATE  ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS     := -ldflags "-s -w -X 'main.version=$(VERSION)' -X 'main.tag=$(TAG)' -X 'main.commit=$(COMMIT)' -X 'main.buildDate=$(BUILD_DATE)'"
 COVERAGE_MIN := 90
+# docsync release of docs-check (DOC-008).
+DOCSYNC_VERSION := v0.2.0
 # Per-package floor (TEST-012), checked by coverage-pkg-check in the job that
 # has the prerequisites. Lowest package measured in CI: 92.4 % (cmd). See TESTING.md.
 COVER_PKG_MIN := 90
@@ -104,7 +106,11 @@ fuzz: ## Fuzz the structured CLI inputs (values, mappings, node lists, numbers, 
 docs: ## Regenerate docs/cli.md from the --help texts
 	@scripts/gen-cli-doc.sh
 
-check: fmt-check lint lint-ci vet cross vuln test coverage coverage-pkg-check ## Everything CI checks except the vcan job
+# The documents against the code (DOC-008): docsync, as docs.yml runs it.
+docs-check: ## Check that the documents agree with the code (docsync)
+	@go run github.com/otfabric/docsync@$(DOCSYNC_VERSION) check .
+
+check: fmt-check lint lint-ci vet cross vuln test coverage coverage-pkg-check docs-check ## Everything CI checks except the vcan job
 
 install: build ## Install into /usr/local/bin
 	@install -m 0755 $(BIN_DIR)/$(APP_NAME) /usr/local/bin/$(APP_NAME)
