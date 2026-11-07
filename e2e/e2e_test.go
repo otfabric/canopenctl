@@ -137,10 +137,10 @@ func TestErrorDocuments(t *testing.T) {
 	want(t, r, 13, `"code": "confirmation_required"`)
 	want(t, run(t, "", "sdo", "read", "500", "1000", "0", "-i", "virtual"), 3, "invalid node-ID")
 	want(t, run(t, "", "sdo", "read", "5", "1000", "0", "-i", "virtual", "--timeout", "20ms"), 5, "timeout")
-	want(t, run(t, "", "version"), 0, "canopenctl ", ", built ")
+	want(t, run(t, "", "version"), 0, "canopenctl ", ", built ", ", go-canbus ", ", go-canopen ")
 	r = run(t, "", "version", "--json")
 	want(t, r, 0)
-	if d := doc(t, r.out); d["name"] != "canopenctl" || d["version"] == "" || d["commit"] == "" || d["built"] == "" {
+	if d := doc(t, r.out); d["name"] != "canopenctl" || d["version"] == "" || d["commit"] == "" || d["built"] == "" || !strings.Contains(r.out, `{"name":"go-canopen","version":"`) {
 		t.Fatal(r.out)
 	}
 	for _, sh := range []string{"bash", "zsh", "fish", "powershell"} {
