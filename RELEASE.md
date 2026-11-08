@@ -6,6 +6,17 @@ with the version bump). It computes the tag, builds the binaries for linux
 publishes the GitHub release with the section of this file that matches the
 version as its notes. Add the section before running it.
 
+## v0.6.1
+
+**Date:** 2026-11-08
+**Previous release:** v0.6.0
+
+### Changed
+
+- Release binaries are built with the latest Go 1.26 patch release; v0.6.0 was built with go1.26.0.
+
+---
+
 ## v0.6.0
 
 **Date:** 2026-11-07
