@@ -6,6 +6,46 @@ with the version bump). It computes the tag, builds the binaries for linux
 publishes the GitHub release with the section of this file that matches the
 version as its notes. Add the section before running it.
 
+## v0.7.0
+
+**Date:** 2026-11-08
+**Previous release:** v0.6.1
+
+### Summary
+
+go-canopen v0.5.0 and go-canbus v0.9.0. go-canopen is now tested against
+recorded traffic of real Copley Controls drives; two of the decoder fixes
+it brought show in `monitor` and `decode`.
+
+### Fixed
+
+- `monitor`, `decode`: a node guarding answer with the toggle bit clear
+  (`701#05` after `701#R`) was shown as a heartbeat; it is now a
+  `guard-response`, as the answers with the toggle bit set already were
+  (go-canopen's `dissect.Tracker`). **JSON**: such frames change `kind`
+  from `heartbeat` to `guard-response`; `--service heartbeat` shows both
+  as before.
+
+### Added
+
+- `monitor`, `decode`: PDOs on COB-IDs set or read over SDO earlier in the
+  trace are decoded as that node's PDO, with `"configured": true` in the
+  `pdo` object (record schema updated). A recorded Copley drive sends its
+  TPDO5 on 0x180, which was `unknown`.
+
+### Dependencies
+
+- go-canopen v0.5.0 (from v0.4.1), go-canbus v0.9.0 (from v0.8.0). canopenctl
+  only reads traces; go-canbus's writer and ISO-TP fixes do not change its
+  behaviour.
+
+### Tests
+
+- `decode` of frames recorded from a Copley drive (go-canopen's
+  testdata/captures): both guard answers, the learned TPDO5.
+
+---
+
 ## v0.6.1
 
 **Date:** 2026-11-08

@@ -103,3 +103,31 @@ func TestDecode(t *testing.T) {
 	want(t, run(t, "", "decode", bad), 3, "")
 	want(t, run(t, "", "decode", path, "--service", "x"), 3, "unknown service")
 }
+
+// copleyTrace holds frames recorded from a Copley Controls drive (go-canopen
+// testdata/captures/copley/unknown_copley-1100_absolute-move.log, lines
+// 426-427, 449-460 and 466-468), written as a candump log: node guarding
+// answers with both toggle values, the TPDO5 COB-ID set to 0x180 over SDO,
+// and a TPDO5 frame (the drive's microsecond time stamp 0x1013).
+const copleyTrace = `(3383.105884) can0 701#R
+(3383.105958) can0 701#85
+(3383.338300) can0 701#R
+(3383.338350) can0 701#05
+(3383.132009) can0 601#2304180180010000
+(3383.132223) can0 581#6004180100000000
+(3383.213675) can0 180#B71FE879
+`
+
+// TestDecodeRecordedCopley: decode labels both guard answers as guard
+// responses (the one with the toggle bit clear was a heartbeat before
+// go-canopen v0.5.0) and the frame on 0x180 as the drive's TPDO5, learned
+// from the SDO transfer ("configured").
+func TestDecodeRecordedCopley(t *testing.T) {
+	fresh(t)
+	r := run(t, copleyTrace, "decode", "-", "--format", "json")
+	want(t, r, 0, `"kind":"guard-response"`, `"summary":"TPDO5 node 1: B7 1F E8 79"`, `"configured":true`)
+	if strings.Contains(r.out, `"kind":"heartbeat"`) || strings.Count(r.out, `"kind":"guard-response"`) != 2 {
+		t.Fatalf("guard answers: %s", r.out)
+	}
+	want(t, run(t, copleyTrace, "decode", "-", "--service", "tpdo"), 0, "TPDO5 node 1", "1 shown")
+}
