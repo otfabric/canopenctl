@@ -17,8 +17,11 @@
   are opened without a data phase bit rate. `monitor` and `decode` skip
   error frames (counted in `frames`).
 - **Predefined connection set.** `monitor` and `decode` interpret frames by
-  their default identifiers (as Wireshark does); a device that moved a PDO or
-  SDO channel elsewhere is decoded by the identifier's default meaning. The
+  their default identifiers (as Wireshark does), except PDO COB-IDs they see
+  set or read over SDO (0x1400..0x15FF and 0x1800..0x19FF sub-index 1,
+  expedited): frames on those decode as that node's PDO (`"configured":
+  true`). A PDO moved before the trace starts, or an SDO channel moved
+  elsewhere, is decoded by the identifier's default meaning. The
   SDO commands use the default SDO channel (0x600/0x580 + node-ID); other
   channels (0x1200 sub 1/2, 0x1280..) are not selectable.
 - **LSS** (`lss`) acts on one network with one LSS master: canopenctl does not

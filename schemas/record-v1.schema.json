@@ -54,7 +54,7 @@
           "sync": {"type": "object", "required": ["hasCounter"]},
           "timeStamp": {"type": "object", "required": ["ms", "days", "time"]},
           "emcy": {"$ref": "#/$defs/emcy"},
-          "pdo": {"type": "object", "required": ["number", "transmit"]},
+          "pdo": {"type": "object", "required": ["number", "transmit"], "properties": {"number": {"type": "integer", "minimum": 1, "maximum": 512}, "transmit": {"type": "boolean"}, "configured": {"type": "boolean"}}},
           "sdo": {"type": "object", "required": ["client", "cs", "command", "phase", "index", "subIndex", "hasIndex"],
             "properties": {"phase": {"enum": ["initiate", "segment", "block", "sub-block", "end", "abort", "unknown"]}}},
           "usdo": {"type": "object", "required": ["client", "dest", "destination", "cs", "command", "session", "index", "subIndex", "hasIndex"]},
