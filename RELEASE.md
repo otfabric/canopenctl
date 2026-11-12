@@ -6,6 +6,25 @@ with the version bump). It computes the tag, builds the binaries for linux
 publishes the GitHub release with the section of this file that matches the
 version as its notes. Add the section before running it.
 
+## v0.7.1
+
+**Date:** 2026-11-13
+**Previous release:** v0.7.0
+
+### Summary
+
+Dependency update; no change to canopenctl's own code.
+
+### Dependencies
+
+- go-canopen v0.5.1 (from v0.5.0): no code change; its interop suite now
+  pins canopen-interop v0.4.0 (contract 1.2), with the same results.
+- go-canbus v0.9.1 (from v0.9.0) and go-serial v0.3.0 (from v0.2.1).
+  canopenctl only reads traces and talks SocketCAN or the virtual bus;
+  go-serial's stricter parameter checks do not change its behaviour.
+
+---
+
 ## v0.7.0
 
 **Date:** 2026-11-08
