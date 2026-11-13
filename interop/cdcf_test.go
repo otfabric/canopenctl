@@ -251,7 +251,7 @@ func TestStackDeviceStoreProgram(t *testing.T) {
 			scenario(t, a, "fd", func(t *testing.T) {
 				for k, v := range c.Features {
 					l := strings.ToLower(k)
-					// No contract 1.1 feature is CANopen FD; a later one would be
+					// No contract 1.2 feature is CANopen FD; a later one would be
 					// named so (fd..., ...usdo..., canopenFd...).
 					if v && (strings.HasPrefix(l, "fd") || strings.Contains(l, "usdo") || strings.Contains(l, "canopenfd")) {
 						t.Fatalf("%s declares %s: add the CANopen FD scenarios", a, k)

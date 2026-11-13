@@ -63,7 +63,7 @@
 - **Virtual bus scope.** `-i virtual` is private to one canopenctl process:
   a `simulate -i virtual` cannot be reached by another process. Use vcan.
 - **Platforms.** SocketCAN commands exit 8 on macOS and Windows.
-- **Interop coverage** (canopen-interop v0.3.1, [TESTING.md](TESTING.md)).
+- **Interop coverage** (canopen-interop v0.4.0, contract 1.2, [TESTING.md](TESTING.md)).
   `store`/`restore` and `program` are tested only against go-canopen
   (in process, `simulate --store`/`--program`): no device of the
   canopen-interop contract has 0x1010/0x1011 or 0x1F50/0x1F51 (CANopenNode's

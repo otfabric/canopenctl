@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-// knownDifferences are the documented differences of the contract 1.1
+// knownDifferences are the documented differences of the contract 1.2
 // scenarios (adapter/scenario): a scenario that observes one ends as a
 // known difference with the reason and what it observed, never as a pass;
 // any other deviation fails. Each was observed on the bus (candump) or in
