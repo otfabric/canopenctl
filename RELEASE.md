@@ -6,6 +6,31 @@ with the version bump). It computes the tag, builds the binaries for linux
 publishes the GitHub release with the section of this file that matches the
 version as its notes. Add the section before running it.
 
+## v0.7.2
+
+**Date:** 2026-11-13
+**Previous release:** v0.7.1
+
+### Summary
+
+Interop pin update; no change to canopenctl's own code.
+
+### Interoperability
+
+- The interop suite pins the canopen-interop v0.4.0 images by release and
+  digest (was v0.3.1), the same as go-canopen v0.5.1. Contract 1.2 adds
+  only the optional `upstream` block of the capability document; the
+  three reference images and their operations are unchanged.
+- CI Interop workflow, amd64 and arm64: 220 scenarios each, 152 passed,
+  5 known differences, 63 skipped, 0 failed, per adapter the same as with
+  v0.3.1.
+
+### Documentation
+
+TESTING.md, LIMITATIONS.md.
+
+---
+
 ## v0.7.1
 
 **Date:** 2026-11-13
