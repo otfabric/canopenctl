@@ -189,3 +189,14 @@ canopen-interop or go-canopen's interop suite too):
 | lely | lss-activate-on-waiting | Lely's LSS slave applies a configured node-ID only at the next NMT reset communication: no boot-up 0x728 after `lss configure --address`, a boot-up after `nmt reset-comm all` |
 | lely | lss-fastscan-configured | Lely's LSS slave answers Fastscan whatever its node-ID: `lss fastscan` lists the configured node 5 (0x4F answers on 0x7E4) |
 | lely | eds-object-links | Lely's dcf-tools reject `[xxxxObjectLinks]` sections (v0.1 suite) |
+
+## When CI runs
+
+| Event | Workflow | What runs |
+|---|---|---|
+| Pull request | `pr.yml` | `docs.yml` (docsync, otfabric-policy) always; `ci.yml`, `interop.yml` unless every changed file is documentation; then `OT Fabric Required Checks` |
+| Push to a branch | none | nothing; dispatch `ci.yml`, `interop.yml` to test a branch without a pull request |
+| Push to `main` | `docs.yml` | the light checks; the merged commit was tested as the pull request's merge commit |
+| Release | `release.yml` | the release workflow tests the release commit again |
+
+Documentation means an added or modified `*.md` file outside `.github/`, `testdata/` and `vendor/`, other than `AGENTS.md` and `CLAUDE.md`. A deleted or renamed document, or any other file, runs everything. `OT Fabric Required Checks` fails unless every job that applies succeeded; its summary lists them.
