@@ -6,14 +6,15 @@ with the version bump). It computes the tag, builds the binaries for linux
 publishes the GitHub release with the section of this file that matches the
 version as its notes. Add the section before running it.
 
-## v0.7.4
+## v0.7.5
 
 **Date:** 2026-11-14
-**Previous release:** v0.7.3
+**Previous release:** v0.7.4
 
 ### Summary
 
-Dependency update; no change to canopenctl's own code.
+Dependency update; no change to canopenctl's own code. (v0.7.4 was
+published from the same commit as v0.7.3 and has no changes of its own.)
 
 ### Dependencies
 
