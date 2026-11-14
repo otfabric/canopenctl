@@ -6,6 +6,46 @@ with the version bump). It computes the tag, builds the binaries for linux
 publishes the GitHub release with the section of this file that matches the
 version as its notes. Add the section before running it.
 
+## v0.7.4
+
+**Date:** 2026-11-14
+**Previous release:** v0.7.3
+
+### Summary
+
+Dependency update; no change to canopenctl's own code.
+
+### Dependencies
+
+- go-canopen v0.6.0 (from v0.5.3). What reaches the commands:
+  - `eds show`, `sdo` (with `--eds`) and `simulate --eds`: the string and
+    domain values that a `CompactSubObj` array copies into its elements
+    are bounded to 1 MiB per file; these commands build leniently, so
+    the remaining elements of an object over the bound are skipped with a
+    warning.
+  - `simulate`: a NaN written to a REAL32 or REAL64 object with a
+    `LowLimit` or `HighLimit` is refused with abort 0609 0030h (invalid
+    value); objects without limits accept NaN as before.
+  - `sdo read --block`: an upload without a size indication above
+    `--max-size` is aborted with "out of memory" (0504 0005h), as a
+    segmented one is; before, up to 7 bytes more were accepted. The
+    `simulate` SDO server does the same for block downloads above its
+    size limit.
+  - `lss fastscan`, `lss assign-all` and `boot --lss`: a Fastscan listing
+    ends with the `lss_conflict` error (exit 12) when more than 127 values
+    of one address part answer, even if no address completes.
+  - `boot`: malformed 0x1000, 0x1F56:01 or 0x1020:01 values of a slave
+    fail its boot (`boot_failed`); a malformed configuration date counts
+    as not up to date, so the slave is configured again. A network boot-up
+    replaced by a newer one ends at once.
+  - `--fd` (USDO): a segmented transfer times out when the server only
+    repeats its previous segment or confirmation.
+  - `eds generate`: Unicode format characters (such as U+202E and
+    U+FEFF) are removed from object names in the generated comments.
+- `version` reports go-canopen 0.6.0.
+
+---
+
 ## v0.7.3
 
 **Date:** 2026-11-14
