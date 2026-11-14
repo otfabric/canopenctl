@@ -6,6 +6,29 @@ with the version bump). It computes the tag, builds the binaries for linux
 publishes the GitHub release with the section of this file that matches the
 version as its notes. Add the section before running it.
 
+## v0.7.3
+
+**Date:** 2026-11-14
+**Previous release:** v0.7.2
+
+### Summary
+
+Dependency update; no change to canopenctl's own code.
+
+### Dependencies
+
+- go-canopen v0.5.3 (from v0.5.1): SDO clients ignore an abort for another
+  object while they wait for an initiate response, so a repeated or late
+  frame of an earlier transfer no longer fails the next `sdo` command on a
+  bus that repeats or delays frames.
+- go-canbus v0.10.0 (from v0.9.1): `-i slcan:` over TCP: sends honour
+  their timeout during the write, and closing never waits on an adapter
+  that stopped reading; ISO-TP and database handling in go-canbus are
+  bounded (not used by canopenctl's commands).
+- `version` reports go-canopen 0.5.3 and go-canbus 0.10.0.
+
+---
+
 ## v0.7.2
 
 **Date:** 2026-11-13
