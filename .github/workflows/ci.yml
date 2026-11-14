@@ -1,13 +1,11 @@
+# Called by pr.yml on every pull request that is not documentation only;
+# dispatch it to run it on a branch without a pull request.
 name: CI
 run-name: "CI (${{ github.event_name }}) on ${{ github.ref_name }} by @${{ github.actor }}"
 
 on:
-  push:
-    branches: ["**"]
-    paths-ignore: ['**/*.md']
-  pull_request:
-    branches: ["**"]
-    paths-ignore: ['**/*.md']
+  workflow_call:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -17,15 +15,16 @@ jobs:
   # Lint, vet and the test matrix. Without a vcan interface the Linux
   # interface tests skip there; the vcan job runs them and uploads coverage.
   ci:
-    uses: otfabric/.github/.github/workflows/go-ci.yml@v3.3.1
+    uses: otfabric/.github/.github/workflows/go-ci.yml@v3.8.0
     with:
+      # otfabric-policy runs in docs.yml, on every pull request and push to main.
+      run-policy: false
       run-govulncheck: true
       codecov-name: canopenctl
       run-codecov: false
       go-versions: '["1.26", "1.27"]'
       test-exclude-regex: "/example(s)?($|/)"
       coverpkg: ./...
-      policy-version: v1.4.2
     secrets: inherit
 
   # The commands against simulated nodes on a real vcan interface, natively
