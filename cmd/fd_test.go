@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/otfabric/go-canopen"
 	"github.com/otfabric/go-canopen/cdcf"
@@ -103,10 +102,9 @@ func TestFDMonitor(t *testing.T) {
 	fresh(t)
 	d, _ := builtinDictionary(5, false)
 	n := fdNode(t, d)
-	wait := background("monitor", "-i", "virtual", "--fd", "--service", "usdo", "--node", "5", "--count", "2", "--duration", "10s")
-	time.Sleep(50 * time.Millisecond)
+	mon := background(t, "monitor", "-i", "virtual", "--fd", "--service", "usdo", "--node", "5", "--count", "2", "--duration", "10s")
 	want(t, run(t, "", "sdo", "read", "5", "0x1018", "1", "-i", "virtual", "--fd"), 0)
-	want(t, wait(), 0, "USDO request node 127", "USDO response node 5")
+	want(t, mon.wait(), 0, "USDO request node 127", "USDO response node 5")
 	r := runWith(t, func() {
 		_ = n.EMCY().Raise(context.Background(), 0x5000, emcy.RegGeneric, [5]byte{})
 	}, "monitor", "-i", "virtual", "--fd", "--service", "emcy", "--count", "1", "--duration", "5s", "--format", "json")

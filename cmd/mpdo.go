@@ -133,11 +133,11 @@ support.`,
 	bf.addFD(c, "write over USDO instead of SDO")
 	sf.add(c, false)
 	sf.addFD(c)
-	c.Flags().IntVar(&tpdo, "tpdo", 0, "Make this TPDO an MPDO producer (1..512)")
-	c.Flags().IntVar(&rpdo, "rpdo", 0, "Make this RPDO an MPDO consumer (1..512)")
+	intVar(c.Flags(), &tpdo, "tpdo", 0, "Make this TPDO an MPDO producer (1..512)")
+	intVar(c.Flags(), &rpdo, "rpdo", 0, "Make this RPDO an MPDO consumer (1..512)")
 	c.Flags().StringVar(&mode, "mode", "", "Address mode: dam (destination) or sam (source) (required)")
 	c.Flags().StringVar(&cob, "cob-id", "", "COB-ID of the MPDO (hexadecimal, required)")
-	c.Flags().IntVar(&inhibit, "inhibit", 0, "Inhibit time of a TPDO in 100 µs")
+	intVar(c.Flags(), &inhibit, "inhibit", 0, "Inhibit time of a TPDO in 100 µs")
 	_ = c.MarkFlagRequired("mode")
 	_ = c.MarkFlagRequired("cob-id")
 	return c
@@ -263,7 +263,7 @@ a fixed size).`
 	bf.addFD(c, "write over USDO instead of SDO")
 	sf.add(c, false)
 	sf.addFD(c)
-	c.Flags().IntVar(&list, "list", 1, fmt.Sprintf("List number 1..%d", mpdo.MaxLists))
+	intVar(c.Flags(), &list, "list", 1, fmt.Sprintf("List number 1..%d", mpdo.MaxLists))
 	c.Flags().StringArrayVar(&entries, "entry", nil, "An entry "+format+" (repeatable, comma-separated; none clears the list)")
 	return c
 }
@@ -401,7 +401,7 @@ never transmits. A frame shorter than 8 bytes is shown as malformed.`,
 	bf.add(c, false)
 	c.Flags().StringArrayVar(&cobs, "cob-id", nil, "COB-ID of MPDOs to decode (hexadecimal; repeatable, comma-separated)")
 	c.Flags().StringVar(&edsPath, "eds", "", "EDS or DCF naming the objects")
-	c.Flags().IntVarP(&count, "count", "n", 0, "Stop after this many MPDOs (0: no limit)")
+	intVarP(c.Flags(), &count, "count", "n", 0, "Stop after this many MPDOs (0: no limit)")
 	c.Flags().DurationVar(&duration, "duration", 0, "Stop after this time (0: until Ctrl-C)")
 	return c
 }

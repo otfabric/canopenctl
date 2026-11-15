@@ -5,6 +5,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/otfabric/canopenctl/internal/cli"
@@ -30,6 +31,9 @@ type emcySummary struct {
 	Shown    int    `json:"shown"`
 	Resets   uint64 `json:"resets"`
 	Invalid  uint64 `json:"invalid"`
+	// Dropped counts the emergencies of watched nodes that found the
+	// queue to the output full and were not written.
+	Dropped uint64 `json:"dropped"`
 }
 
 func newEMCYCmd(a *app) *cobra.Command {
@@ -72,11 +76,16 @@ code 0x0000 is an error reset. It never transmits.`,
 				return err
 			}
 			defer func() { _ = bus.Close() }()
-			events := make(chan emcy.Event, 1024)
+			events := make(chan emcy.Event, streamQueue)
+			var dropped atomic.Uint64
 			eopts := []emcy.Option{emcy.WithHandler(func(e emcy.Event) {
+				if len(want) > 0 && !want[e.Node] {
+					return // not watched: neither queued nor counted
+				}
 				select {
 				case events <- e:
 				default:
+					dropped.Add(1)
 				}
 			})}
 			if bf.fd {
@@ -97,9 +106,6 @@ code 0x0000 is an error reset. It never transmits.`,
 				case <-ctx.Done():
 					break loop
 				case e := <-events:
-					if len(want) > 0 && !want[e.Node] {
-						continue
-					}
 					r := emcyRecord{Timestamp: stamp(e.Time), Node: e.Node, COBID: cli.Hex(uint64(e.COBID.ID()), 3),
 						emcyJSON: *emcyOf(e.Code, uint8(e.Register), e.MSEF[:])}
 					text := fmt.Sprintf("(%s) node %d EMCY %s %s, register %s %v, msef %s", r.Timestamp, e.Node, r.Code, r.CodeText, r.Register, r.RegisterNames, r.MSEF)
@@ -118,18 +124,21 @@ code 0x0000 is an error reset. It never transmits.`,
 				}
 			}
 			s := cons.Stats()
-			sum.Received, sum.Resets, sum.Invalid = s.Received, s.Resets, s.Invalid
+			sum.Received, sum.Resets, sum.Invalid, sum.Dropped = s.Received, s.Resets, s.Invalid, dropped.Load()
 			if a.format == "json" {
 				return st.Record("summary", "", sum)
 			}
 			a.warn("%d emergency messages (%d shown, %d error resets), %d invalid", sum.Received, sum.Shown, sum.Resets, sum.Invalid)
+			if sum.Dropped > 0 {
+				a.warn("%d emergency messages dropped: the output did not keep up", sum.Dropped)
+			}
 			return nil
 		},
 	}
 	bf.add(w, false)
 	bf.addFD(w, "decode 20-byte CANopen FD emergencies")
 	w.Flags().StringVar(&nodes, "node", "", "Only these nodes: 5, 1-10,20")
-	w.Flags().IntVarP(&count, "count", "n", 0, "Stop after this many messages (0: no limit)")
+	intVarP(w.Flags(), &count, "count", "n", 0, "Stop after this many messages (0: no limit)")
 	w.Flags().DurationVar(&duration, "duration", 0, "Stop after this time (0: until Ctrl-C)")
 	c.AddCommand(w)
 	return c
@@ -143,7 +152,7 @@ type production struct {
 }
 
 func (p *production) add(c *cobra.Command, count int, period time.Duration) {
-	c.Flags().IntVarP(&p.count, "count", "n", count, "Send this many messages (0: until --duration)")
+	intVarP(c.Flags(), &p.count, "count", "n", count, "Send this many messages (0: until --duration)")
 	c.Flags().DurationVar(&p.period, "period", period, "Time between two messages (at least 1ms)")
 	c.Flags().DurationVar(&p.duration, "duration", 0, "Stop after this time (0: no limit; needed with --count 0)")
 }
@@ -267,7 +276,7 @@ microseconds): use it for tests and commissioning, not as a precision clock.`,
 	bf.add(c, true)
 	bf.addFD(c, "send the SYNC in CAN FD frames")
 	p.add(c, 10, 100*time.Millisecond)
-	c.Flags().IntVar(&overflow, "counter", 0, "SYNC counter overflow value: 0 (no counter) or 2..240")
+	intVar(c.Flags(), &overflow, "counter", 0, "SYNC counter overflow value: 0 (no counter) or 2..240")
 	c.Flags().StringVar(&cob, "cob-id", "80", "COB-ID of the SYNC message (hexadecimal)")
 	return c
 }

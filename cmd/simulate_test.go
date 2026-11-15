@@ -3,36 +3,29 @@
 package cmd
 
 import (
-	"context"
 	"strings"
 	"testing"
-	"time"
 )
 
 // simulateWith runs simulate in the background on the virtual bus and
-// runs probe against it once the node answers SDO.
+// runs probe against it once the node is started: simulate writes its
+// ready record, the first line on stdout, after Node.Start.
 func simulateWith(t *testing.T, simArgs []string, probe func()) result {
 	t.Helper()
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan result, 1)
-	go func() { done <- runCtx(ctx, append([]string{"simulate", "-i", "virtual"}, simArgs...)...) }()
-	time.Sleep(50 * time.Millisecond)
+	c := background(t, append([]string{"simulate", "-i", "virtual"}, simArgs...)...)
+	c.waitOut("\n")
 	probe()
-	cancel()
-	select {
-	case r := <-done:
-		return r
-	case <-time.After(10 * time.Second):
-		t.Fatal("simulate did not end")
-	}
-	return result{}
+	return c.stop()
 }
 
 func TestSimulateBuiltin(t *testing.T) {
 	fresh(t)
+	// The watch listens before simulate starts: it receives the emergency
+	// that --emcy raises right after the start.
+	emcyWatch := background(t, "emcy", "watch", "-i", "virtual", "--count", "1")
 	r := simulateWith(t, []string{"--node-id", "5", "--heartbeat", "10", "--tick", "2000:00", "--tick-period", "2ms", "--emcy", "5000:81:0102", "--format", "json"}, func() {
 		want(t, run(t, "", "sdo", "read", "5", "0x1008", "0", "-i", "virtual"), 0, "canopenctl simulated node")
-		want(t, run(t, "", "emcy", "watch", "-i", "virtual", "--count", "1", "--duration", "2s"), 0, "")
+		want(t, emcyWatch.wait(), 0, "node 5 EMCY 0x5000", "register 0x81", "msef 0102000000")
 		want(t, run(t, "", "nmt", "start", "5", "-i", "virtual", "--wait"), 0, "operational")
 		want(t, run(t, "", "pdo", "watch", "5", "--tpdo", "1", "-i", "virtual", "--count", "2"), 0, "TPDO1 185#")
 	})

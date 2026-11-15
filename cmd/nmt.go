@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/otfabric/canopenctl/internal/cli"
@@ -174,10 +175,13 @@ type heartbeatNode struct {
 }
 
 type heartbeatSummary struct {
-	Events   int             `json:"events"`
-	Timeouts uint64          `json:"timeouts"`
-	BootUps  uint64          `json:"bootUps"`
-	Nodes    []heartbeatNode `json:"nodes"`
+	Events   int    `json:"events"`
+	Timeouts uint64 `json:"timeouts"`
+	BootUps  uint64 `json:"bootUps"`
+	// Dropped counts the events of watched nodes that found the queue
+	// to the output full (the output did not keep up) and were not written.
+	Dropped uint64          `json:"dropped"`
+	Nodes   []heartbeatNode `json:"nodes"`
 }
 
 func newHeartbeatCmd(a *app) *cobra.Command {
@@ -200,7 +204,9 @@ guarding responses) of the network and reports each node's boot-ups and state
 changes. With --supervise every node (or those of --node) is supervised from
 its first heartbeat: a node silent for longer is reported lost once, and
 again when it resumes. It never transmits. At the end a summary lists the
-nodes; a heartbeat timeout during the watch makes the exit code 1.`,
+nodes and the events dropped because the output did not keep up; a heartbeat
+timeout during the watch makes the exit code 1, also when its record was
+dropped.`,
 		Example: `  canopenctl heartbeat watch -i can0 --supervise 1500ms --duration 1m
   canopenctl heartbeat watch -i vcan0 --node 5,6 --format json`,
 		Args: cobra.NoArgs,
@@ -227,11 +233,16 @@ nodes; a heartbeat timeout during the watch makes the exit code 1.`,
 				return err
 			}
 			defer func() { _ = bus.Close() }()
-			events := make(chan nmt.HeartbeatEvent, 1024)
+			events := make(chan nmt.HeartbeatEvent, streamQueue)
+			var dropped atomic.Uint64
 			hopts := []nmt.Option{nmt.WithHeartbeatHandler(func(e nmt.HeartbeatEvent) {
+				if len(want) > 0 && !want[e.Node] {
+					return // not watched: neither queued nor counted
+				}
 				select {
 				case events <- e:
 				default:
+					dropped.Add(1)
 				}
 			})}
 			if bf.fd {
@@ -268,9 +279,6 @@ nodes; a heartbeat timeout during the watch makes the exit code 1.`,
 				case <-ctx.Done():
 					break loop
 				case e := <-events:
-					if len(want) > 0 && !want[e.Node] {
-						continue
-					}
 					r := heartbeatRecord{Timestamp: stamp(e.Time), Node: e.Node, Event: eventName(e.Kind), State: e.State.String(), Previous: e.Previous.String()}
 					if err := st.Record("heartbeat", heartbeatText(e, supervise), r); err != nil {
 						return errs.New(errs.KindOutput, errs.CodeOutputFailed, "write output: %w", err)
@@ -285,6 +293,8 @@ nodes; a heartbeat timeout during the watch makes the exit code 1.`,
 					}
 				}
 			}
+			sum.Dropped = dropped.Load()
+			lost := false
 			for _, s := range hc.Nodes() {
 				if len(want) > 0 && !want[s.Node] {
 					continue
@@ -296,6 +306,7 @@ nodes; a heartbeat timeout during the watch makes the exit code 1.`,
 				if !s.LastSeen.IsZero() {
 					n.LastSeen = stamp(s.LastSeen)
 				}
+				lost = lost || s.Lost
 				sum.Nodes = append(sum.Nodes, n)
 			}
 			if a.format == "json" {
@@ -311,8 +322,15 @@ nodes; a heartbeat timeout during the watch makes the exit code 1.`,
 					a.warn("node %d: %s%s, %d boot-ups", n.Node, n.State, lost, n.BootUps)
 				}
 				a.warn("%d events, %d boot-ups, %d timeouts", sum.Events, sum.BootUps, sum.Timeouts)
+				if sum.Dropped > 0 {
+					a.warn("%d events dropped: the output did not keep up", sum.Dropped)
+				}
 			}
-			if sum.Timeouts > 0 {
+			// A supervised node was lost: a timeout record was written, a
+			// node is still lost at the end, or the consumer counted a
+			// timeout while events were dropped (its record may be among
+			// them, and the node may have resumed since).
+			if sum.Timeouts > 0 || lost || (sum.Dropped > 0 && hc.Stats().Timeouts > 0) {
 				return errs.ErrFindings
 			}
 			return nil
@@ -322,7 +340,7 @@ nodes; a heartbeat timeout during the watch makes the exit code 1.`,
 	bf.addFD(w, "accept CAN FD heartbeats")
 	w.Flags().StringVar(&nodes, "node", "", "Only these nodes: 5, 1-10,20")
 	w.Flags().DurationVar(&supervise, "supervise", 0, "Consumer heartbeat time: report a node lost after this silence (0: no supervision)")
-	w.Flags().IntVarP(&count, "count", "n", 0, "Stop after this many events (0: no limit)")
+	intVarP(w.Flags(), &count, "count", "n", 0, "Stop after this many events (0: no limit)")
 	w.Flags().DurationVar(&duration, "duration", 0, "Stop after this time (0: until Ctrl-C)")
 	c.AddCommand(w)
 	return c
@@ -499,6 +517,6 @@ errors and makes the exit code 1.`,
 	bf.addFD(c, "read over USDO instead of SDO")
 	c.Flags().StringVar(&nodes, "nodes", "1-127", "Node-IDs to scan: 1-127, 1-10,20")
 	c.Flags().DurationVar(&timeout, "timeout", 100*time.Millisecond, "SDO response timeout per node")
-	c.Flags().IntVar(&parallel, "parallel", 16, "Nodes queried at once")
+	intVar(c.Flags(), &parallel, "parallel", 16, "Nodes queried at once")
 	return c
 }

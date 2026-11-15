@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -65,18 +66,123 @@ func runCtx(ctx context.Context, args ...string) result {
 	return result{code, out.String(), errOut.String()}
 }
 
-// background runs a command concurrently; wait returns its result.
-func background(args ...string) (wait func() result) {
-	ch := make(chan result, 1)
-	go func() { ch <- runCtx(context.Background(), args...) }()
-	return func() result {
+// syncBuffer is an output stream of a command that the test reads while
+// the command writes it.
+type syncBuffer struct {
+	mu      sync.Mutex
+	b       bytes.Buffer
+	changed chan struct{} // closed and replaced by every write
+}
+
+func newSyncBuffer() *syncBuffer { return &syncBuffer{changed: make(chan struct{})} }
+
+func (s *syncBuffer) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n, err := s.b.Write(p)
+	close(s.changed)
+	s.changed = make(chan struct{})
+	return n, err
+}
+
+func (s *syncBuffer) String() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.b.String()
+}
+
+// state returns what was written so far and a channel the next write
+// closes.
+func (s *syncBuffer) state() (string, <-chan struct{}) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.b.String(), s.changed
+}
+
+// bgCommand is a command running in the background.
+type bgCommand struct {
+	t           *testing.T
+	args        []string
+	cancel      context.CancelFunc
+	out, errOut *syncBuffer
+	done        chan struct{} // closed when Run returned
+	code        int           // set before done is closed
+}
+
+// background runs a command concurrently and returns once the command has
+// opened its interface (or ended before that). From then on every frame
+// sent on the virtual bus reaches it: the port queues frames from its
+// opening, and the command's bus reads them from its first subscription
+// on (openBus), so the test can produce traffic at once.
+func background(t *testing.T, args ...string) *bgCommand {
+	t.Helper()
+	ctx, cancel := context.WithCancel(context.Background())
+	c := &bgCommand{t: t, args: args, cancel: cancel, out: newSyncBuffer(), errOut: newSyncBuffer(), done: make(chan struct{})}
+	t.Cleanup(cancel)
+	opened := make(chan struct{})
+	var once sync.Once
+	orig := openTransport
+	openTransport = func(iface string, o openOpts) (canbus.Transport, error) {
+		tr, err := orig(iface, o)
+		once.Do(func() { close(opened) })
+		return tr, err
+	}
+	go func() {
+		defer close(c.done)
+		c.code = Run(ctx, args, strings.NewReader(""), c.out, c.errOut)
+	}()
+	select {
+	case <-opened:
+	case <-c.done:
+	case <-time.After(10 * time.Second):
+		// The wrapper stays: it only calls the original.
+		t.Fatalf("%v did not open its interface within 10 s", args)
+	}
+	openTransport = orig // the command read it before closing opened or done
+	return c
+}
+
+// waitOut waits until the command's stdout holds s. It fails the test
+// when the command ends without writing it, or after 10 s.
+func (c *bgCommand) waitOut(s string) {
+	c.t.Helper()
+	limit := time.NewTimer(10 * time.Second)
+	defer limit.Stop()
+	for {
+		got, changed := c.out.state()
+		if strings.Contains(got, s) {
+			return
+		}
 		select {
-		case r := <-ch:
-			return r
-		case <-time.After(30 * time.Second):
-			return result{code: -1, errOut: "background command did not end"}
+		case <-changed:
+		case <-c.done:
+			if strings.Contains(c.out.String(), s) {
+				return
+			}
+			c.t.Fatalf("%v ended (exit %d) without writing %q\nstdout: %s\nstderr: %s", c.args, c.code, s, c.out, c.errOut)
+		case <-limit.C:
+			c.t.Fatalf("%v did not write %q within 10 s\nstdout: %s\nstderr: %s", c.args, s, c.out, c.errOut)
 		}
 	}
+}
+
+// wait returns the result of the command once it ended by itself.
+func (c *bgCommand) wait() result {
+	c.t.Helper()
+	select {
+	case <-c.done:
+	case <-time.After(30 * time.Second):
+		c.cancel()
+		c.t.Fatalf("%v did not end within 30 s\nstdout: %s\nstderr: %s", c.args, c.out, c.errOut)
+	}
+	return result{c.code, c.out.String(), c.errOut.String()}
+}
+
+// stop interrupts the command, as Ctrl-C does, and returns its result.
+func (c *bgCommand) stop() result {
+	c.t.Helper()
+	c.cancel()
+	return c.wait()
 }
 
 // port opens a bus on the shared virtual bus, closed with the test.

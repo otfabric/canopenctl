@@ -95,3 +95,26 @@ func TestSDODump(t *testing.T) {
 }
 
 var _ = canopen.NodeID(0)
+
+// TestEmptyEDSFlag: an empty --eds of sdo dump and dcf export (an unset
+// variable in a script) is refused as the missing required flag: exit 2,
+// a usage error, before the bus is opened.
+func TestEmptyEDSFlag(t *testing.T) {
+	for _, args := range [][]string{
+		{"sdo", "dump", "5", "--eds", "", "-i", "virtual"},
+		{"sdo", "dump", "5", "--eds=", "-i", "virtual"},
+		{"dcf", "export", "5", "--eds", "", "-i", "virtual", "-o", filepath.Join(t.TempDir(), "out.dcf")},
+	} {
+		fresh(t)
+		ioNode(t, 5)
+		r := run(t, "", args...)
+		want(t, r, 2, `required flag "eds" is empty`, "Run 'canopenctl --help' for usage.")
+		r = run(t, "", append(args, "--format", "json")...)
+		want(t, r, 2, `"kind": "usage"`, `"code": "invalid_input"`, `required flag \"eds\" is empty`)
+		if strings.Contains(r.errOut, "goroutine") || r.errOut != "" {
+			t.Fatalf("%v: stderr %q", args, r.errOut)
+		}
+	}
+	// Without --eds at all: the same kind of error, from cobra.
+	want(t, run(t, "", "sdo", "dump", "5", "-i", "virtual", "--format", "json"), 2, `"kind": "usage"`, `"code": "invalid_input"`, `required flag(s) \"eds\" not set`)
+}

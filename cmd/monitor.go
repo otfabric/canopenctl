@@ -326,7 +326,7 @@ JSON Lines, one record per message and a summary at the end.`,
 	bf.add(c, false)
 	c.Flags().BoolVar(&bf.fd, "fd", false, "Open the interface for CAN FD and decode CANopen FD (USDO, FD EMCY)")
 	addMsgFilterFlags(c, &nodes, &svcs)
-	c.Flags().IntVarP(&count, "count", "n", 0, "Stop after this many messages shown (0: no limit)")
+	intVarP(c.Flags(), &count, "count", "n", 0, "Stop after this many messages shown (0: no limit)")
 	c.Flags().DurationVar(&duration, "duration", 0, "Stop after this time (0: until Ctrl-C)")
 	return c
 }

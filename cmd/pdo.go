@@ -9,10 +9,12 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/otfabric/canopenctl/internal/cli"
 	"github.com/otfabric/canopenctl/internal/errs"
+	"github.com/otfabric/canopenctl/internal/output"
 	"github.com/otfabric/go-canbus"
 	"github.com/otfabric/go-canopen"
 	"github.com/otfabric/go-canopen/master"
@@ -96,7 +98,7 @@ func (i pdoInfo) text() string {
 	for _, m := range i.Mapping {
 		fmt.Fprintf(&b, "\n    %s/%d", m.Key, m.Bits)
 		if m.Name != "" {
-			fmt.Fprintf(&b, "  %s", m.Name)
+			fmt.Fprintf(&b, "  %s", output.Sanitize(m.Name))
 		}
 	}
 	return b.String()
@@ -236,8 +238,8 @@ sends SDO read requests.`,
 	bf.addFD(c, "read over USDO instead of SDO")
 	sf.add(c, false)
 	sf.addFD(c)
-	c.Flags().IntVar(&tpdo, "tpdo", 0, "Only this TPDO (1..512)")
-	c.Flags().IntVar(&rpdo, "rpdo", 0, "Only this RPDO (1..512)")
+	intVar(c.Flags(), &tpdo, "tpdo", 0, "Only this TPDO (1..512)")
+	intVar(c.Flags(), &rpdo, "rpdo", 0, "Only this RPDO (1..512)")
 	c.Flags().StringVar(&edsPath, "eds", "", "EDS or DCF of the node: names of the mapped objects")
 	return c
 }
@@ -391,13 +393,13 @@ mapping changes only in pre-operational.`,
 	bf.addFD(c, "write over USDO instead of SDO")
 	sf.add(c, false)
 	sf.addFD(c)
-	c.Flags().IntVar(&tpdo, "tpdo", 0, "Configure this TPDO (1..512)")
-	c.Flags().IntVar(&rpdo, "rpdo", 0, "Configure this RPDO (1..512)")
+	intVar(c.Flags(), &tpdo, "tpdo", 0, "Configure this TPDO (1..512)")
+	intVar(c.Flags(), &rpdo, "rpdo", 0, "Configure this RPDO (1..512)")
 	c.Flags().StringVar(&mapping, "map", "", "Mapping entries IIII:SS:BITS, comma-separated")
-	c.Flags().IntVar(&trans, "type", 255, "Transmission type: 0 acyclic sync, 1..240 every nth SYNC, 252/253 RTR (TPDO), 254/255 event-driven (default: keep the node's)")
-	c.Flags().IntVar(&inhibit, "inhibit", 0, "Inhibit time of a TPDO in 100 µs (default: keep the node's)")
-	c.Flags().IntVar(&eventTimer, "event-timer", 0, "Event timer (TPDO) or deadline (RPDO) in ms (default: keep the node's)")
-	c.Flags().IntVar(&start, "sync-start", 0, "SYNC start value of a TPDO, 0..240 (default: keep the node's)")
+	intVar(c.Flags(), &trans, "type", 255, "Transmission type: 0 acyclic sync, 1..240 every nth SYNC, 252/253 RTR (TPDO), 254/255 event-driven (default: keep the node's)")
+	intVar(c.Flags(), &inhibit, "inhibit", 0, "Inhibit time of a TPDO in 100 µs (default: keep the node's)")
+	intVar(c.Flags(), &eventTimer, "event-timer", 0, "Event timer (TPDO) or deadline (RPDO) in ms (default: keep the node's)")
+	intVar(c.Flags(), &start, "sync-start", 0, "SYNC start value of a TPDO, 0..240 (default: keep the node's)")
 	c.Flags().StringVar(&cob, "cob-id", "", "CAN identifier of the PDO (hexadecimal; default: keep the node's)")
 	c.Flags().BoolVar(&noRTR, "no-rtr", false, "Set COB-ID bit 30: no remote transmission requests")
 	c.Flags().BoolVar(&disable, "disable", false, "Leave the PDO invalid (COB-ID bit 31)")
@@ -483,6 +485,9 @@ type pdoRecord struct {
 type pdoWatchSummary struct {
 	Received uint64 `json:"received"`
 	Errors   uint64 `json:"errors"`
+	// Dropped counts the PDOs that found the queue to the output full
+	// and were not written.
+	Dropped uint64 `json:"dropped"`
 }
 
 func newPDOWatchCmd(a *app) *cobra.Command {
@@ -565,9 +570,10 @@ node must be operational to transmit.`,
 				f      canbus.Frame
 				values []pdo.Value
 			}
-			ch := make(chan got, 1024)
+			ch := make(chan got, streamQueue)
 			var mu sync.Mutex
 			closed := false
+			var dropped atomic.Uint64
 			lst := pdo.NewListener(bus, cfg.COBID&^canopen.COBInvalid, dec, func(f *canbus.Frame, values []pdo.Value) {
 				mu.Lock()
 				defer mu.Unlock()
@@ -577,6 +583,7 @@ node must be operational to transmit.`,
 				select {
 				case ch <- got{*f, values}:
 				default:
+					dropped.Add(1)
 				}
 			})
 			if err := lst.Start(); err != nil {
@@ -623,21 +630,24 @@ node must be operational to transmit.`,
 				}
 			}
 			s := lst.Stats()
-			sum := pdoWatchSummary{Received: s.Received, Errors: s.Errors}
+			sum := pdoWatchSummary{Received: s.Received, Errors: s.Errors, Dropped: dropped.Load()}
 			if a.format == "json" {
 				return st.Record("summary", "", sum)
 			}
 			a.warn("%d PDOs received, %d too short for the mapping", sum.Received, sum.Errors)
+			if sum.Dropped > 0 {
+				a.warn("%d PDOs dropped: the output did not keep up", sum.Dropped)
+			}
 			return nil
 		},
 	}
 	bf.add(c, false)
 	sf.add(c, false)
-	c.Flags().IntVar(&tpdo, "tpdo", 0, "TPDO number (1..512, required)")
+	intVar(c.Flags(), &tpdo, "tpdo", 0, "TPDO number (1..512, required)")
 	c.Flags().StringVar(&edsPath, "eds", "", "EDS or DCF of the node: names and data types of the mapped objects")
 	c.Flags().StringVar(&cob, "cob-id", "", "COB-ID of the PDO (hexadecimal; with --map: read nothing from the node)")
 	c.Flags().StringVar(&mp, "map", "", "Mapping IIII:SS:BITS,... (with --cob-id)")
-	c.Flags().IntVarP(&count, "count", "n", 0, "Stop after this many PDOs (0: no limit)")
+	intVarP(c.Flags(), &count, "count", "n", 0, "Stop after this many PDOs (0: no limit)")
 	c.Flags().DurationVar(&duration, "duration", 0, "Stop after this time (0: until Ctrl-C)")
 	_ = c.MarkFlagRequired("tpdo")
 	return c

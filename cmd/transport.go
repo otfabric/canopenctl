@@ -198,17 +198,17 @@ func (s *sdoFlags) uploadLimit() int {
 
 func (s *sdoFlags) add(c *cobra.Command, block bool) {
 	c.Flags().DurationVar(&s.timeout, "timeout", sdo.DefaultTimeout, "SDO response timeout")
-	c.Flags().IntVar(&s.retries, "retries", 0, "Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)")
-	c.Flags().IntVar(&s.maxSize, "max-size", sdo.DefaultMaxSize, "Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO)")
+	intVar(c.Flags(), &s.retries, "retries", 0, "Repeat a transfer that timed out, or (SDO) broke on a lost or reordered frame (abort 0x05030000, 0x05040001..04), up to this many times (0..10)")
+	intVar(c.Flags(), &s.maxSize, "max-size", sdo.DefaultMaxSize, "Largest upload accepted, in bytes (1..1073741824); a larger one is aborted (SDO and USDO)")
 	if block {
 		c.Flags().BoolVar(&s.block, "block", false, "Use SDO block transfer")
-		c.Flags().IntVar(&s.blockSize, "block-size", sdo.MaxBlockSize, "Segments per block the client asks for in block uploads (1..127)")
+		intVar(c.Flags(), &s.blockSize, "block-size", sdo.MaxBlockSize, "Segments per block the client asks for in block uploads (1..127)")
 	}
 }
 
 // addFD adds --client-id, the node-ID of the USDO client of --fd.
 func (s *sdoFlags) addFD(c *cobra.Command) {
-	c.Flags().IntVar(&s.clientID, "client-id", int(canopen.MaxNodeID), "With --fd: node-ID of canopenctl's USDO client (its requests go out on 0x600 + it)")
+	intVar(c.Flags(), &s.clientID, "client-id", int(canopen.MaxNodeID), "With --fd: node-ID of canopenctl's USDO client (its requests go out on 0x600 + it)")
 }
 
 func (s *sdoFlags) validate() error {
@@ -407,6 +407,13 @@ func bounded(ctx context.Context, d time.Duration) (context.Context, context.Can
 	}
 	return context.WithCancel(ctx)
 }
+
+// streamQueue is the length of the queue between a library's event
+// handler and the command goroutine of heartbeat watch, emcy watch and
+// pdo watch, which alone writes output. The handler never blocks: an
+// event that finds the queue full (the output did not keep up) is
+// dropped and counted in the summary's dropped.
+const streamQueue = 1024
 
 // ended reports an error that ends a stream normally: the duration
 // elapsed or the user interrupted.

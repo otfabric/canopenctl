@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/otfabric/canopenctl/internal/cli"
@@ -102,6 +103,11 @@ func setSerial(f *eds.File, serial uint32) bool {
 	}
 	return false
 }
+
+// simStateQueue is the length of the queue of NMT state changes between
+// the node and the command goroutine of simulate. A state change that
+// finds it full is dropped and counted in the summary's dropped.
+const simStateQueue = 256
 
 // tickTarget is an object simulate increments.
 type tickTarget struct {
@@ -232,7 +238,10 @@ type simSummary struct {
 	Node  canopen.NodeID `json:"node"`
 	State string         `json:"state"`
 	Ticks uint64         `json:"ticks"`
-	Stats node.Stats     `json:"stats"`
+	// Dropped counts the state changes that found the queue to the
+	// output full and were not written.
+	Dropped uint64     `json:"dropped"`
+	Stats   node.Stats `json:"stats"`
 }
 
 func newSimulateCmd(a *app) *cobra.Command {
@@ -396,11 +405,13 @@ nothing else; use vcan0 to talk to it from another canopenctl.`,
 			if prog {
 				opts = append(opts, node.WithProgram(program.Config{Handler: &memProgram{}}))
 			}
-			states := make(chan nmt.StateChange, 256)
+			states := make(chan nmt.StateChange, simStateQueue)
+			var dropped atomic.Uint64
 			opts = append(opts, node.WithStateHandler(func(sc nmt.StateChange) {
 				select {
 				case states <- sc:
 				default:
+					dropped.Add(1)
 				}
 			}))
 			if err := bf.check("simulate"); err != nil {
@@ -479,19 +490,22 @@ nothing else; use vcan0 to talk to it from another canopenctl.`,
 					}
 				}
 			}
-			sum := simSummary{Node: n.NodeID(), State: n.State().String(), Ticks: nTicks, Stats: n.Stats()}
+			sum := simSummary{Node: n.NodeID(), State: n.State().String(), Ticks: nTicks, Dropped: dropped.Load(), Stats: n.Stats()}
 			if a.format == "json" {
 				return st.Record("summary", "", sum)
 			}
 			s := sum.Stats
 			a.warn("node %d: %s; %d SDO requests, %d heartbeats, %d EMCY, %d resets", sum.Node, sum.State, s.SDO.Requests, s.Heartbeat.Sent, s.EMCY.Sent, s.Resets)
+			if sum.Dropped > 0 {
+				a.warn("%d state changes dropped: the output did not keep up", sum.Dropped)
+			}
 			return nil
 		},
 	}
 	bf.add(c, true)
 	bf.addFD(c, "run a CANopen FD device (USDO server, FD PDOs, EMCY, heartbeat)")
 	c.Flags().StringVar(&edsPath, "eds", "", "EDS or DCF of the simulated device (default: a built-in device)")
-	c.Flags().IntVar(&nodeID, "node-id", 0, "Node-ID 1..127 (default: the DCF's; with --lss: none, the node starts unconfigured)")
+	intVar(c.Flags(), &nodeID, "node-id", 0, "Node-ID 1..127 (default: the DCF's; with --lss: none, the node starts unconfigured)")
 	c.Flags().BoolVar(&lssOn, "lss", false, "Make the node an LSS slave (CiA 305); without --node-id it starts unconfigured")
 	c.Flags().StringVar(&serial, "serial", "", "Serial number 0x1018:04 (part of the LSS address; default: the dictionary's)")
 	c.Flags().StringVar(&storePath, "store", "", "Keep the parameters (0x1010/0x1011, LSS store) in this file")
@@ -499,7 +513,7 @@ nothing else; use vcan0 to talk to it from another canopenctl.`,
 	c.Flags().BoolVar(&drive, "drive", false, "Simulate a CiA 402 drive (adds its objects where missing)")
 	c.Flags().DurationVar(&drivePeriod, "drive-period", time.Millisecond, "Simulation step of the drive")
 	c.Flags().BoolVar(&autoStart, "auto-start", false, "Enter operational right after the boot-up (and after every reset)")
-	c.Flags().IntVar(&heartbeat, "heartbeat", -1, "Producer heartbeat time 0x1017 in ms (default: the dictionary's)")
+	intVar(c.Flags(), &heartbeat, "heartbeat", -1, "Producer heartbeat time 0x1017 in ms (default: the dictionary's)")
 	c.Flags().StringArrayVar(&ticks, "tick", nil, "Increment this unsigned object (IIII:SS, hexadecimal) every --tick-period (repeatable)")
 	c.Flags().DurationVar(&tickPeriod, "tick-period", 100*time.Millisecond, "Period of --tick")
 	c.Flags().StringVar(&emcySpec, "emcy", "", "Raise this emergency: CODE[:REG[:MSEF]] in hexadecimal (e.g. 2310, 5000:81:0102)")

@@ -28,7 +28,7 @@ type lssFlags struct {
 func (l *lssFlags) add(c *cobra.Command) {
 	l.bf.add(c, true)
 	c.Flags().DurationVar(&l.timeout, "timeout", lss.DefaultTimeout, "Response timeout of a confirmed LSS service")
-	c.Flags().IntVar(&l.retries, "retries", lss.DefaultRetries, "Re-sends of a request without response (0..10)")
+	intVar(c.Flags(), &l.retries, "retries", lss.DefaultRetries, "Re-sends of a request without response (0..10)")
 	c.Flags().DurationVar(&l.window, "window", lss.DefaultFastscanTimeout, "Listening window of each Fastscan query")
 }
 
@@ -597,7 +597,7 @@ instead of scanned). Configured devices do not take part: "lss inquire" or
 	}
 	lf.add(c)
 	known.add(c)
-	c.Flags().IntVar(&limit, "max", 0, "Stop after this many devices (0: all)")
+	intVar(c.Flags(), &limit, "max", 0, "Stop after this many devices (0: all)")
 	return c
 }
 
@@ -713,9 +713,9 @@ configured, the result lists them with the error and the exit code is 1.`,
 	}
 	lf.add(c)
 	known.add(c)
-	c.Flags().IntVar(&first, "first", 0, "First node-ID to give (required)")
+	intVar(c.Flags(), &first, "first", 0, "First node-ID to give (required)")
 	c.Flags().StringVar(&avoid, "avoid", "", "Node-IDs not to give (in use): 1-9,20")
-	c.Flags().IntVar(&limit, "max", 0, "Stop after this many devices (0: all)")
+	intVar(c.Flags(), &limit, "max", 0, "Stop after this many devices (0: all)")
 	c.Flags().BoolVar(&store, "store", false, "Make every device store its node-ID")
 	_ = c.MarkFlagRequired("first")
 	return c

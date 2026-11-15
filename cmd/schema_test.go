@@ -3,7 +3,6 @@
 package cmd
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -151,14 +150,10 @@ func TestSchemasCommands(t *testing.T) {
 	path := filepath.Join(dir, "t.log")
 	_ = os.WriteFile(path, []byte(trace), 0o644)
 	j("decode", path)
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan result, 1)
-	go func() { done <- runCtx(ctx, "simulate", "-i", "virtual", "--node-id", "9", "--format", "json") }()
-	time.Sleep(50 * time.Millisecond)
+	sim := background(t, "simulate", "-i", "virtual", "--node-id", "9", "--format", "json")
+	sim.waitOut(`"type":"ready"`)
 	want(t, run(t, "", "nmt", "start", "9", "-i", "virtual", "--wait"), 0)
-	cancel()
-	r := <-done
-	validateOutput(t, r)
+	validateOutput(t, sim.stop())
 }
 
 // TestGoldenJSON pins the JSON of deterministic results.

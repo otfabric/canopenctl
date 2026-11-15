@@ -47,7 +47,13 @@ them; `simulate -i virtual` runs a node no other process can reach.
 **Safety** lives in one function, `cli.TransmitCheck`: the in-process bus,
 vcan and vxcan (kind from rtnetlink) pass; anything else needs `--yes`.
 Every state-changing command calls it after validating its input and before
-opening the interface. Passive commands open slcan adapters listen-only.
+opening the interface, with three inputs checked later, still before the
+first frame: the entries of an `mpdo scanner`/`dispatcher` list after the
+split at commas (more than 254 are refused by go-canopen, exit 10), the
+target of `cia402 move` and the velocity of `cia402 velocity` (after the
+interface is opened), and `simulate --tick` (on the node's dictionary). An
+invalid value there can end with exit 13 (no `--yes`) or 4 instead of 3.
+Passive commands open slcan adapters listen-only.
 
 **Errors.** Commands return typed `errs.Error`s or library errors;
 `errs.Classify` maps the sentinels: a remote `*canopen.AbortError` becomes

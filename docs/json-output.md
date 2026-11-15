@@ -90,16 +90,25 @@ Streaming commands write JSON Lines: one compact object per line with
 | `monitor`, `decode` | `message` | the frame (`timestamp`, `interface`, `id`, `idHex`, `extended`, `remote`, `len` (up to 64), `fd` and `brs` (CAN FD), `data`), `kind` (`nmt`, `sync`, `time`, `emcy`, `tpdo`, `rpdo`, `sdo-request`, `sdo-response`, `usdo-request`, `usdo-response`, `heartbeat`, `boot-up`, `guard-request`, `guard-response`, `lss-master`, `lss-slave`, `unknown`), `node` (for a USDO message its sender), `summary` (one line), `error` (malformed), and one object for the service: `nmt`, `sync`, `timeStamp`, `emcy` (`code`, `codeText`, `register`, `registerNames`, `msef`, `reset`, and `fd` for a CANopen FD emergency: `logicalDevice`, `ciaSpec`, `status`, `ms`, `days`, `time`), `pdo`, `sdo` (command, phase, object, data, abort code and text, block transfer fields; segments carry the object of their transfer), `usdo` (`client`, `dest`, `destination`, `cs`, `command`, `session`, `index`, `subIndex`, `hasIndex`, `dataType`, `size`, `counter`, `tProc`, `abortCode`, `abortText`, `data`), `errorControl`, `lss`. `pdo` is `number`, `transmit` and `configured` (true when the PDO was identified by a COB-ID set or read over SDO earlier in the trace, not by the predefined connection set). A node guarding answer that follows a request is `guard-response` whatever its toggle bit |
 | | `summary` | `frames`, `shown`, `malformed`, `dropped`, `kinds` (count per kind) |
 | `heartbeat watch` | `heartbeat` | `timestamp`, `node`, `event` (`boot-up`, `state-change`, `timeout`, `resumed`), `state`, `previous` |
-| | `summary` | `events`, `timeouts`, `bootUps`, `nodes` (`node`, `state`, `bootUps`, `lost`, `lastSeen`, `timeoutMs`) |
+| | `summary` | `events`, `timeouts`, `bootUps`, `dropped`, `nodes` (`node`, `state`, `bootUps`, `lost`, `lastSeen`, `timeoutMs`) |
 | `emcy watch` | `emcy` | `timestamp`, `node`, `cobId`, `code`, `codeText`, `register`, `registerNames`, `msef`, `reset`, `fd` (`--fd`: the CANopen FD fields as in `monitor`) |
-| | `summary` | `received`, `shown`, `resets`, `invalid` |
+| | `summary` | `received`, `shown`, `resets`, `invalid`, `dropped` |
 | `pdo watch` | `pdo` | `timestamp`, `node`, `kind`, `pdo`, `cobId`, `data`, `values` (`index`, `subIndex`, `key`, `name`, `type`, `raw`, `value`) |
-| | `summary` | `received`, `errors` |
+| | `summary` | `received`, `errors`, `dropped` |
 | `mpdo watch` | `mpdo` | `timestamp`, `cobId`, `mode` (`sam`, `dam`, `malformed`), `node` (DAM: the consumer, 0 for all; SAM: the producer), `index`, `subIndex`, `key`, `name` (`--eds`), `data` (the 4 data bytes; the frame for a malformed one), `error` |
 | | `summary` | `received`, `malformed`, `dropped` |
 | `simulate` | `ready` | `node` (255: an unconfigured LSS node), `state`, `objects`, `source` (the EDS, or `built-in`), `drive`, `lss`, `fd`, `store`, `program` |
 | | `state` | `timestamp`, `node`, `from`, `to`, `command` (the NMT command that caused it) |
-| | `summary` | `node`, `state`, `ticks`, `stats` (go-canopen's node.Stats: NMT, SDO server, heartbeat, EMCY, SYNC, TIME, PDO counters) |
+| | `summary` | `node`, `state`, `ticks`, `dropped`, `stats` (go-canopen's node.Stats: NMT, SDO server, heartbeat, EMCY, SYNC, TIME, PDO counters) |
+
+`dropped` counts the records a stream did not write because its output did
+not keep up: the events wait in a queue (1024 for `heartbeat watch`,
+`emcy watch` and `pdo watch`, 256 state changes for `simulate`), and an event
+that finds the queue full is dropped and counted. In text output a line on
+stderr reports them. `heartbeat watch` still ends with exit 1 when a
+dropped event was a timeout of a supervised node, or a node is lost at the
+end. For `monitor`, `decode` and `mpdo watch`, `dropped` counts the frames
+the bus and the command's subscription dropped (queues of 65,536 frames).
 
 ```json
 {"schemaVersion":"1.0","type":"message","timestamp":"1700000000.002000","interface":"vcan0","id":1541,"idHex":"605","extended":false,"remote":false,"len":8,"data":"4008100000000000","kind":"sdo-request","node":5,"summary":"SDO request node 5: initiate upload 0x1008:00","sdo":{"client":true,"cs":2,"command":"initiate upload","phase":"initiate","index":4104,"subIndex":0,"hasIndex":true}}
