@@ -3,8 +3,8 @@ module github.com/otfabric/canopenctl
 go 1.26.0
 
 require (
-	github.com/otfabric/go-canbus v0.10.1
-	github.com/otfabric/go-canopen v0.6.2
+	github.com/otfabric/go-canbus v0.11.0
+	github.com/otfabric/go-canopen v0.6.3
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10

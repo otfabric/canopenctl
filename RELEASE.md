@@ -6,6 +6,17 @@ with the version bump). It computes the tag, builds the binaries for linux
 publishes the GitHub release with the section of this file that matches the
 version as its notes. Add the section before running it.
 
+## v0.8.1
+
+**Date:** 2026-11-15
+**Previous release:** v0.8.0
+
+### Changed
+
+- Built on go-canopen v0.6.3 and go-canbus v0.11.0 (were v0.6.2 and v0.10.1). canopenctl does not use the kernel ISO-TP connection, so its commands behave as before.
+
+---
+
 ## v0.8.0
 
 **Date:** 2026-11-15
