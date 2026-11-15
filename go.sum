@@ -5,10 +5,10 @@ github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/otfabric/go-canbus v0.10.0 h1:CFhbeVFSlMCefAg2HOXgaEjTRktPIfHo2rNDtT9Rfok=
 github.com/otfabric/go-canbus v0.10.0/go.mod h1:HhWgnZ6lM3XKvjN8g/1nM7JaXE9JQ9goFhhnVOXC26s=
-github.com/otfabric/go-canopen v0.6.0 h1:c/l1ctoEQenYiwa5NgW3aNNGxUkwfxbnJkZ+gDiT9n0=
-github.com/otfabric/go-canopen v0.6.0/go.mod h1:PqMfx1rPafyCqhPXpariffsnNV0PYTBIz3q5m3P3eHk=
-github.com/otfabric/go-serial v0.4.0 h1:upyHL27nB9WG65yR+c6pGf2Xl2dq/4hUlSbWFclO4iQ=
-github.com/otfabric/go-serial v0.4.0/go.mod h1:CGEz7RtffVDY/EBU8oN/ydSCjMOdtRpB0LNTc8BmSUQ=
+github.com/otfabric/go-canopen v0.6.1 h1:cmR9Bk8ugZRZyOZ/VYDojGuUk1mgevfn5AIf4UGhyls=
+github.com/otfabric/go-canopen v0.6.1/go.mod h1:PqMfx1rPafyCqhPXpariffsnNV0PYTBIz3q5m3P3eHk=
+github.com/otfabric/go-serial v0.4.1 h1:GfLtuIBvWc4ZvAsb0Ab6BEbh3E8qVHVa7TvHaSNh0o4=
+github.com/otfabric/go-serial v0.4.1/go.mod h1:CGEz7RtffVDY/EBU8oN/ydSCjMOdtRpB0LNTc8BmSUQ=
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
 github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 h1:KRzFb2m7YtdldCEkzs6KqmJw4nqEVZGK7IN2kJkjTuQ=
 github.com/santhosh-tekuri/jsonschema/v6 v6.0.2/go.mod h1:JXeL+ps8p7/KNMjDQk3TCwPpBy0wYklyWTfbkIzdIFU=

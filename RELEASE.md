@@ -6,6 +6,23 @@ with the version bump). It computes the tag, builds the binaries for linux
 publishes the GitHub release with the section of this file that matches the
 version as its notes. Add the section before running it.
 
+## v0.7.6
+
+**Date:** 2026-11-15
+**Previous release:** v0.7.5
+
+No command or flag is added or changed.
+
+### Changed
+
+- Built on go-canopen v0.6.1 (was v0.6.0) (go-canopen RELEASE.md, v0.6.1). For the tool this means:
+  - An SDO transfer ends with a protocol error after more than four responses in a row that move it no further, and a USDO bulk download waits at most the response timeout between two segments; before, such a transfer went on until the command was stopped.
+  - An EDS or DCF file larger than 16 MiB, or one that declares more than 65,536 sub-objects, is refused.
+  - A NaN is refused as the limit of a float object, and a value beyond the range of REAL32 is refused instead of written as an infinity.
+  - The commands that boot or scan a network and are stopped while they run report that the client is closed.
+
+---
+
 ## v0.7.5
 
 **Date:** 2026-11-14
