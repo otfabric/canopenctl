@@ -6,6 +6,19 @@ with the version bump). It computes the tag, builds the binaries for linux
 publishes the GitHub release with the section of this file that matches the
 version as its notes. Add the section before running it.
 
+## v0.7.7
+
+**Date:** 2026-11-15
+**Previous release:** v0.7.6
+
+No command or flag is added or changed.
+
+### Changed
+
+- Built on go-canopen v0.6.2 (was v0.6.1), go-canbus v0.10.1 (was v0.10.0) and go-serial v0.4.1 (was v0.4.0) (go-canbus RELEASE.md, v0.10.1; go-serial RELEASE.md, v0.4.1). For the tool this means: a send that waits for another send ends when the command is stopped; on Windows a serial write to an SLCAN adapter that times out is reported as an error, and on Linux and macOS an adapter path that is not a character device is refused when it is opened.
+
+---
+
 ## v0.7.6
 
 **Date:** 2026-11-15
