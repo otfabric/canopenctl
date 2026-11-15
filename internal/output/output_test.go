@@ -71,3 +71,46 @@ func TestStream(t *testing.T) {
 	}
 	_ = errors.New
 }
+
+func TestSanitize(t *testing.T) {
+	for _, tc := range []struct{ in, want string }{
+		{"", ""},
+		{"Producer heartbeat time", "Producer heartbeat time"},
+		{"Grüße °C µs ✓", "Grüße °C µs ✓"},
+		{`C:\dir`, `C:\dir`},
+		{"a\x1b[2Jb", `a\x1b[2Jb`},
+		{"bell\a", `bell\a`},
+		{"line\nbreak\ttab\r", `line\nbreak\ttab\r`},
+		{"\x00\x1f\x7f", `\x00\x1f\x7f`},
+		{"c1 \u0085 \u009b", `c1 \u0085 \u009b`},
+		{"name\u202Etxt.exe", `name\u202etxt.exe`},
+		{"\u202A\u202B\u202C\u202D\u2066\u2067\u2068\u2069\u200E\u200F\u061C", `\u202a\u202b\u202c\u202d\u2066\u2067\u2068\u2069\u200e\u200f\u061c`},
+		{"latin1 \xfc \x9b[2J", "latin1 \xfc " + `\x9b[2J`}, // a Latin-1 letter is kept, CSI is not
+		{"\u2065\u2070\u2029", "\u2065\u2070\u2029"},        // around the controls: not escaped
+	} {
+		if got := Sanitize(tc.in); got != tc.want {
+			t.Errorf("Sanitize(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+// TestSanitizedOutput: table cells and text stream lines are written
+// through Sanitize; JSON escapes the same strings itself.
+func TestSanitizedOutput(t *testing.T) {
+	var b bytes.Buffer
+	if err := WriteTable(&b, []string{"KEY", "NAME"}, [][]string{{"0x1008:00", "x\x1b]0;title\a\u202Ey"}}); err != nil {
+		t.Fatal(err)
+	}
+	if got := b.String(); !strings.Contains(got, `x\x1b]0;title\a\u202ey`) || strings.ContainsAny(got, "\x1b\a\u202E") {
+		t.Fatalf("table: %q", got)
+	}
+	for _, f := range []Format{Text, Table, JSON} {
+		b.Reset()
+		if err := NewStream(&b, f).Record("message", "(-) can0\x1b[2J 123#00", map[string]string{"interface": "can0\x1b[2J"}); err != nil {
+			t.Fatal(err)
+		}
+		if got := b.String(); strings.ContainsRune(got, 0x1b) || !strings.Contains(got, `can0\x1b[2J`) && !strings.Contains(got, `can0\u001b[2J`) {
+			t.Fatalf("%s stream: %q", f, got)
+		}
+	}
+}

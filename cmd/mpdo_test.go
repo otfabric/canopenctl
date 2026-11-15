@@ -5,7 +5,6 @@ package cmd
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/otfabric/go-canbus"
 	"github.com/otfabric/go-canopen"
@@ -52,8 +51,7 @@ func TestMPDO(t *testing.T) {
 	}
 	want(t, run(t, "", "nmt", "start", "all", "-i", "virtual"), 0)
 	eventually(t, "operational", func() bool { return c.State() == canopen.StateOperational && p.State() == canopen.StateOperational })
-	wait := background("mpdo", "watch", "--cob-id", "0x285,0x385", "--count", "3", "--duration", "10s", "-i", "virtual", "--eds", "testdata/io401.eds")
-	time.Sleep(50 * time.Millisecond)
+	w := background(t, "mpdo", "watch", "--cob-id", "0x285,0x385", "--count", "3", "--duration", "10s", "-i", "virtual", "--eds", "testdata/io401.eds")
 	_ = p.Dictionary().SetUint(simOutput, 0, 0x5A)
 	ctx := context.Background()
 	eventually(t, "SAM sent", func() bool { return p.MPDOProducer(2).Send(ctx, simOutput, 0) == nil })
@@ -63,7 +61,7 @@ func TestMPDO(t *testing.T) {
 	}
 	f, _ := canbus.NewStandard(0x285, []byte{1, 2})
 	_ = port(t).Send(ctx, &f)
-	r := wait()
+	r := w.wait()
 	want(t, r, 0, "0x285 MPDO SAM from node 5 0x2001:00 Firmware image = 5a000000", "MPDO DAM to node 6 0x2002:00", "MPDO malformed", "3 MPDOs, 1 malformed")
 	r = runWith(t, func() {
 		_ = p.MPDOProducer(3).SendDAM(ctx, 0, simText, 0, []byte("x"))
@@ -80,13 +78,12 @@ func TestMPDO(t *testing.T) {
 }
 
 // runWith runs a command in the background, calls produce once it is
-// listening and returns its result.
+// listening (its interface is open) and returns its result.
 func runWith(t *testing.T, produce func(), args ...string) result {
 	t.Helper()
-	wait := background(args...)
-	time.Sleep(50 * time.Millisecond)
+	c := background(t, args...)
 	produce()
-	return wait()
+	return c.wait()
 }
 
 func TestMPDOInvalid(t *testing.T) {

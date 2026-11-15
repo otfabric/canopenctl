@@ -5,7 +5,6 @@ package cmd
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/otfabric/go-canopen"
 	"github.com/otfabric/go-canopen/nmt"
@@ -37,26 +36,25 @@ func TestHeartbeatWatch(t *testing.T) {
 	fresh(t)
 	n := ioNode(t, 5)
 	_ = n.Dictionary().SetUint(od.IndexProducerHeartbeat, 0, 10)
-	wait := background("heartbeat", "watch", "-i", "virtual", "--node", "5", "--supervise", "100ms", "--duration", "600ms", "--format", "json")
-	time.Sleep(100 * time.Millisecond)
+	// Each step waits for the record of the one before it.
+	c := background(t, "heartbeat", "watch", "-i", "virtual", "--node", "5", "--supervise", "100ms", "--format", "json")
+	c.waitOut(`"state":"pre-operational"`) // the first heartbeat
 	_ = n.SetState(canopen.StateOperational)
-	time.Sleep(50 * time.Millisecond)
+	c.waitOut(`"state":"operational"`)
 	_ = n.Dictionary().SetUint(od.IndexProducerHeartbeat, 0, 0) // silent: lost
-	time.Sleep(200 * time.Millisecond)
+	c.waitOut(`"event":"timeout"`)
 	_ = n.Dictionary().SetUint(od.IndexProducerHeartbeat, 0, 10) // resumed
-	r := wait()
-	want(t, r, 1, `"type":"heartbeat"`, `"event":"state-change"`, `"event":"timeout"`, `"event":"resumed"`, `"type":"summary"`)
+	c.waitOut(`"event":"resumed"`)
+	r := c.stop() // Ctrl-C ends the stream; the timeout makes it exit 1
+	want(t, r, 1, `"type":"heartbeat"`, `"event":"state-change"`, `"event":"timeout"`, `"event":"resumed"`, `"type":"summary"`, `"timeouts":1`, `"dropped":0`)
 	// Text output, and a boot-up.
 	fresh(t)
 	m := ioNode(t, 6)
 	_ = m.Dictionary().SetUint(od.IndexProducerHeartbeat, 0, 10)
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan result, 1)
-	go func() { done <- runCtx(ctx, "heartbeat", "watch", "-i", "virtual", "--count", "2") }()
-	time.Sleep(100 * time.Millisecond)
+	c = background(t, "heartbeat", "watch", "-i", "virtual", "--count", "2")
+	c.waitOut("node 6 unknown -> pre-operational")
 	_ = m.Reset(context.Background(), nmt.ResetCommunication)
-	r = <-done
-	cancel()
+	r = c.wait()
 	want(t, r, 0, "node 6 boot-up", "2 events, 1 boot-ups, 0 timeouts")
 	want(t, run(t, "", "heartbeat", "watch", "-i", "virtual", "--duration", "30ms", "--node", "x"), 3, "invalid")
 	want(t, run(t, "", "heartbeat", "watch", "-i", "virtual", "--supervise", "-1s"), 3, "--supervise")

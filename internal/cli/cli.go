@@ -362,13 +362,69 @@ func ValueText(t canopen.DataType, b []byte) string {
 	return canopen.FormatValue(t, b)
 }
 
-// LoadEDS reads an EDS or DCF file. Lines it cannot read are an
-// invalid_eds error (exit 3).
+// MaxFileSize bounds the EDS, DCF and concise DCF files canopenctl reads:
+// 16 MiB, go-canopen's own bound for EDS and DCF files.
+const MaxFileSize = 16 << 20
+
+// ErrFileSize reports a file larger than MaxFileSize.
+var ErrFileSize = fmt.Errorf("file larger than %d bytes", MaxFileSize)
+
+// ReadFile reads an EDS, DCF or concise DCF file of at most MaxFileSize
+// bytes. A regular file that is larger is refused with ErrFileSize before
+// anything is read; of anything else (a pipe, a device) at most
+// MaxFileSize+1 bytes are read before it is refused.
+func ReadFile(path string) ([]byte, error) {
+	f, err := os.Open(filepath.Clean(path))
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = f.Close() }()
+	size := 511 // as os.ReadFile when the size is not known
+	if st, err := f.Stat(); err == nil && st.Mode().IsRegular() {
+		if st.Size() > MaxFileSize {
+			return nil, ErrFileSize
+		}
+		size = int(st.Size())
+	}
+	// One byte more than the size, so that the end is seen without a new
+	// allocation; a file that grows past the bound is refused too.
+	b := make([]byte, 0, size+1)
+	r := io.LimitReader(f, MaxFileSize+1)
+	for {
+		if len(b) == cap(b) {
+			b = append(b, 0)[:len(b)]
+		}
+		n, err := r.Read(b[len(b):cap(b)])
+		b = b[:len(b)+n]
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	if len(b) > MaxFileSize {
+		return nil, ErrFileSize
+	}
+	return b, nil
+}
+
+// LoadEDS reads an EDS or DCF file (ReadFile). Lines it cannot read and a
+// file larger than MaxFileSize are an invalid_eds error (exit 3).
 func LoadEDS(path string) (*eds.File, error) {
-	b, err := os.ReadFile(filepath.Clean(path))
+	b, err := ReadFile(path)
+	if errors.Is(err, ErrFileSize) {
+		return nil, &errs.Error{Kind: errs.KindInvalidInput, Code: errs.CodeInvalidEDS, Message: fmt.Sprintf("%s: %v", path, err), Cause: err}
+	}
 	if err != nil {
 		return nil, errs.New(errs.KindInvalidInput, errs.CodeFileOpen, "cannot read EDS: %w", err)
 	}
+	return ParseEDS(path, b)
+}
+
+// ParseEDS parses an EDS or DCF file that ReadFile read from path. Lines
+// it cannot read are an invalid_eds error (exit 3).
+func ParseEDS(path string, b []byte) (*eds.File, error) {
 	f, err := eds.ParseBytes(b)
 	if err != nil {
 		return nil, &errs.Error{Kind: errs.KindInvalidInput, Code: errs.CodeInvalidEDS, Message: fmt.Sprintf("%s: %v", path, err), Cause: err}

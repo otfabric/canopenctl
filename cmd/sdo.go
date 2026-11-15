@@ -14,6 +14,7 @@ import (
 
 	"github.com/otfabric/canopenctl/internal/cli"
 	"github.com/otfabric/canopenctl/internal/errs"
+	"github.com/otfabric/canopenctl/internal/output"
 	"github.com/otfabric/go-canopen"
 	"github.com/otfabric/go-canopen/eds"
 	"github.com/otfabric/go-canopen/od"
@@ -38,11 +39,26 @@ func loadDesc(path string, node canopen.NodeID) (*desc, error) {
 	if err != nil {
 		return nil, err
 	}
+	return descOf(path, f, node)
+}
+
+// descOf describes a node by an EDS or DCF already read from path.
+func descOf(path string, f *eds.File, node canopen.NodeID) (*desc, error) {
 	d, _, err := cli.Dictionary(f, path, node, true)
 	if err != nil {
 		return nil, err
 	}
 	return &desc{path: path, file: f, dict: d}, nil
+}
+
+// requireEDS refuses an empty --eds of a command that needs one, as a
+// missing required flag (exit 2): cobra's check of required flags counts
+// --eds "" (an unset variable in a script) as given.
+func requireEDS(path string) error {
+	if path == "" {
+		return errs.New(errs.KindUsage, errs.CodeInvalidInput, `required flag "eds" is empty: give the EDS or DCF of the node`)
+	}
+	return nil
 }
 
 // variable returns the description of a sub-object, or nil.
@@ -97,7 +113,7 @@ type sdoValue struct {
 func (r sdoValue) Text() string {
 	name := ""
 	if r.Name != "" {
-		name = " " + r.Name
+		name = " " + output.Sanitize(r.Name)
 	}
 	if r.write {
 		s := fmt.Sprintf("node %d %s%s (%s) <- %s: written (%d bytes)", r.Node, r.Key, name, r.Type, r.text, r.Size)
@@ -407,7 +423,7 @@ func (r dumpResult) Text() string {
 		if e.Error != "" {
 			v = "error: " + e.Error
 		}
-		fmt.Fprintf(&b, "%s  %-40s %-15s %s\n", e.Key, e.Name, e.Type, v)
+		fmt.Fprintf(&b, "%s  %-40s %-15s %s\n", e.Key, output.Sanitize(e.Name), e.Type, v)
 	}
 	fmt.Fprintf(&b, "node %d: %d read, %d failed", r.Node, r.Read, r.Failed)
 	return b.String()
@@ -465,6 +481,9 @@ code 1. When the node does not answer at all, dump stops with a timeout (exit
   canopenctl sdo dump 5 --eds drive.eds --range 6000-6FFF --format table -i vcan0`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireEDS(edsPath); err != nil {
+				return err
+			}
 			node, err := cli.ParseNode(args[0], false)
 			if err != nil {
 				return err

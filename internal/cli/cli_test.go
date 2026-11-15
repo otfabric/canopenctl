@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -224,6 +225,48 @@ func TestLoadEDSAndDictionary(t *testing.T) {
 	}
 	if _, _, err := Dictionary(broken, "broken.dcf", 5, false); !errors.As(err, &e) || e.Code != errs.CodeInvalidEDS {
 		t.Fatal(err)
+	}
+}
+
+// TestReadFileBound: ReadFile returns a file of up to MaxFileSize bytes
+// whole and refuses a larger one with ErrFileSize; a file that cannot be
+// opened or read is the error of the file system (file_open_failed in
+// LoadEDS, as before).
+func TestReadFileBound(t *testing.T) {
+	dir := t.TempDir()
+	sizes := []int64{0, 1, MaxFileSize - 1, MaxFileSize, MaxFileSize + 1}
+	if runtime.GOOS != "windows" { // NTFS reserves the space of a truncated file
+		sizes = append(sizes, 1<<32) // beyond a 32-bit int
+	}
+	for _, size := range sizes {
+		path := filepath.Join(dir, strconv.FormatInt(size, 10))
+		f, err := os.Create(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := f.Truncate(size); err != nil { // sparse
+			t.Fatal(err)
+		}
+		_ = f.Close()
+		b, err := ReadFile(path)
+		switch {
+		case size <= MaxFileSize && (err != nil || int64(len(b)) != size):
+			t.Errorf("%d bytes: read %d, %v", size, len(b), err)
+		case size > MaxFileSize && !errors.Is(err, ErrFileSize):
+			t.Errorf("%d bytes: read %d, %v; want ErrFileSize", size, len(b), err)
+		}
+	}
+	var e *errs.Error
+	for _, path := range []string{filepath.Join(dir, "none.eds"), dir} {
+		if _, err := ReadFile(path); err == nil || errors.Is(err, ErrFileSize) {
+			t.Errorf("%s: %v", path, err)
+		}
+		if _, err := LoadEDS(path); !errors.As(err, &e) || e.Code != errs.CodeFileOpen {
+			t.Errorf("LoadEDS(%s): %v", path, err)
+		}
+	}
+	if _, err := LoadEDS(filepath.Join(dir, strconv.Itoa(MaxFileSize+1))); !errors.As(err, &e) || e.Code != errs.CodeInvalidEDS || e.Kind != errs.KindInvalidInput {
+		t.Errorf("LoadEDS of a file over the bound: %v", err)
 	}
 }
 

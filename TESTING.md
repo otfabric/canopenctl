@@ -8,8 +8,9 @@
 | `make coverage-pkg-check` | Every package at least `COVER_PKG_MIN` (90 %); lowest measured in CI: 92.4 % (cmd). The vcan job runs it |
 | `make e2e` | End-to-end tests of the built binary (Linux parts need vcan0) |
 | `make interop` | The binary against the canopen-interop images (Docker, vcan0) |
-| `make fuzz` | Fuzz targets of the parsed inputs: values per data type, PDO mappings, node lists, numbers (node-IDs, sub-indices, UNSIGNED32, store groups, COB-IDs, NODE=VALUE), indices/sub-indices/types/COB-IDs, LSS addresses and MPDO list entries; and of the file inputs through the commands: `decode -` with arbitrary bytes (every trace reader) and `eds validate`/`eds show` with arbitrary files (exit 0, 1 or 3, never a panic) |
+| `make fuzz` | Every `Fuzz` function of the module, found with `go test -list '^Fuzz'` (a new one is fuzzed without being listed; the target fails when it finds none), `FUZZTIME` each (CI: 10 s). They cover the parsed inputs: values per data type, PDO mappings, node lists, numbers (node-IDs, sub-indices, UNSIGNED32, store groups, COB-IDs, NODE=VALUE), indices/sub-indices/types/COB-IDs, LSS addresses and MPDO list entries; and of the file inputs through the commands: `decode -` with arbitrary bytes (every trace reader) and `eds validate`/`eds show` with arbitrary files (exit 0, 1 or 3, never a panic) |
 | `make cross` | vet for every release platform, linux/arm (32-bit) included |
+| `GOARCH=386 go test ./...` | The tests on a 32-bit platform, where `int` has 32 bits; CI job `test-386` (no race detector there) |
 | `make check` | fmt, staticcheck, golangci-lint, vet, cross, govulncheck, test, coverage, coverage-pkg-check |
 
 Per-package override: the root package main is not gated (`COVER_PKG_SKIP`). It only calls `cmd.Execute`; the e2e suite runs the built binary, which `go test` coverage does not instrument.
@@ -26,7 +27,11 @@ the CiA 302 boot-up (with the LSS step) and CANopen FD nodes
 (`node.WithFD` on CAN FD ports of the virtual bus) operated over USDO. Streams (monitor, watches) run while the
 test produces traffic or events until the command's `--count` is reached. A
 command that runs into the test's 30 s limit fails the test (a stream that
-waited for nothing cannot pass silently).
+waited for nothing cannot pass silently). A test produces traffic once the
+command has opened its interface (`background` in `cmd/helpers_test.go`
+hooks `openTransport`; the port queues every frame from then on), or once
+`simulate` wrote its `ready` record, and steps on the records the command
+writes: no test sleeps to wait for a command.
 
 **Hostile peers and chaos** (`cmd/hostile_test.go`, `cmd/chaos_test.go`,
 `cmd/sast_test.go`): an SDO server announcing 4 GiB or streaming segments
@@ -36,8 +41,24 @@ quickly, no segment requested when the size is announced);
 `sdo write --verify` through a chaos bridge that drops, duplicates, delays
 and reorders frames: a run reports the right data or fails with exit 5, 6
 or 11, never wrong data, and with `--retries 5` at least 90 % succeed.
-Integer flags are checked before they become node-IDs or bytes
-(`--client-id 257` was node 1).
+Every integer flag refuses a value outside -2147483648..2147483647 with
+exit 3 on every platform, before the flag's own range applies
+(`TestIntFlagsRange` walks the command tree; `TestIntFlagsBoundary` has the
+values that were a valid node-ID, PDO, program or size in the low 32 bits of
+a 32-bit `int`, and `--client-id 257` was node 1). These tables run on
+linux/386 in CI.
+
+**Bounds** (`cmd/limits_test.go`, `cmd/fifo_unix_test.go`,
+`cmd/dropped_test.go`, `cmd/sanitize_test.go`): every command that reads an
+EDS, DCF or concise DCF refuses a sparse file of 16 MiB + 1 byte with exit 3,
+allocating less than 4 MiB, and loads one of exactly 16 MiB; a named pipe
+shows that `cdcf show`, `cdcf apply` and `eds generate` read their file once,
+and `/dev/zero` is read up to the bound. With a stdout that does not keep up,
+in a `testing/synctest` bubble, `heartbeat watch`, `emcy watch`, `pdo watch`
+and `simulate` count what they drop, and `heartbeat watch` ends with 1 for a
+supervised node it lost while the queue was full. ESC, BEL and U+202E in an
+EDS, a DCF and a candump interface name reach text and table output only
+escaped.
 
 **Golden files** (`cmd/testdata/golden`, regenerate with
 `go test ./cmd -update`) pin `decode` (text and JSON Lines), `eds show`,

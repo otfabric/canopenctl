@@ -6,6 +6,108 @@ with the version bump). It computes the tag, builds the binaries for linux
 publishes the GitHub release with the section of this file that matches the
 version as its notes. Add the section before running it.
 
+## v0.8.0
+
+**Date:** 2026-11-15
+**Previous release:** v0.7.7
+
+### Summary
+
+Input bounds, stream summaries and text output, from the review against
+otfabric/engineering policy 1.6. No flag is removed, no default changes,
+and JSON output only gains the `dropped` field. An exit code changes where
+a command did not do what docs/exitcodes.md says, and for integer flag
+values outside the 32-bit range (below).
+
+### Breaking
+
+What scripts see differently (each is described under Fixed):
+
+- A binary concise DCF file above 16 MiB is refused with exit 3. No way
+  back is needed for a real file: a concise DCF holds a few kilobytes.
+- `heartbeat watch` ends with exit 1 when a supervised node timed out, also
+  when its record was dropped, as docs/exitcodes.md says. A script that
+  wants the old result reads `timeouts` of the summary instead.
+- On 64-bit platforms, a `--count` of the watch commands and `monitor`, a
+  `--max` of `lss fastscan`/`lss assign-all` or a `--slcan-baud` above
+  2147483647 is refused with exit 3. Use 0 for no count limit where the
+  flag allows it, or a value within the range.
+
+### Fixed
+
+- EDS, DCF and concise DCF files are read up to 16 MiB (16,777,216 bytes),
+  go-canopen's own bound for EDS and DCF files, before they are parsed: a
+  larger regular file is refused with exit 3 (`invalid_eds`, "file larger
+  than 16777216 bytes") without being read, and a pipe or device is read up
+  to the bound. Since v0.7.6 such EDS and DCF files were refused only after
+  they had been read whole. For binary concise DCF files, which go-canopen
+  does not bound, the 16 MiB bound is new. `cdcf show`, `cdcf apply` and
+  `eds generate` read their file once instead of twice, so a named pipe
+  works with them.
+- `heartbeat watch` ends with exit 1 when a supervised node timed out, also
+  when the output did not keep up and the timeout record was dropped, and
+  when a node is lost at the end, as docs/exitcodes.md says. Before, a
+  timeout dropped from the full queue of 1024 events was not counted and
+  the watch ended with 0.
+- Integer flags take their value within -2147483648..2147483647 on every
+  platform and refuse anything beyond it with exit 3 (`invalid_input`,
+  "out of range"), before the flag's own range applies. On 32-bit
+  platforms (the linux/armv7 release) a larger value kept only its low 32
+  bits and could pass that range check. On 64-bit platforms most such
+  values were already refused by the flag's own range; the `--count` of
+  `monitor`, `heartbeat watch`, `emcy watch`, `pdo watch` and `mpdo watch`
+  the `--max` of `lss fastscan` and `lss assign-all`, and `--slcan-baud`
+  accepted them and now refuse them (exit 3).
+- `sdo dump` and `dcf export` refuse an empty `--eds ""` as a missing
+  required flag: exit 2 with a usage error (an error document with
+  `--format json`). Before, the command ended with a Go runtime error on
+  stderr and no error document.
+- Text and table output write the control characters (C0, DEL, C1, also as
+  single Latin-1 bytes) and bidirectional controls of names and descriptions
+  from EDS and DCF files and of interface names from traces escaped
+  (`\x1b`, `\u202e`): `eds show`, `sdo read`/`sdo dump` with `--eds`,
+  `pdo show`, `dcf apply`, `cdcf show`, `cdcf apply`, `monitor`, `decode`,
+  `pdo watch`, `mpdo watch` and every table. JSON output is unchanged.
+
+### Added
+
+- `dropped` in the summary of `heartbeat watch`, `emcy watch`, `pdo watch`
+  and `simulate` (additive JSON field; the record schema leaves the summary
+  open): the events not written because the output did not keep up (queues
+  of 1024 events, 256 state changes for `simulate`). In text output a line
+  on stderr reports them.
+- CI: the tests on linux/386 (job `test-386`), where `int` has 32 bits.
+- `make fuzz` finds every `Fuzz` function with `go test -list` instead of a
+  fixed list.
+
+### Documentation
+
+- SECURITY.md: a table of the bounds (file sizes, uploads, timeouts,
+  retries, queues, productions, integer flags, MPDO lists, PDO mappings),
+  the escaping of names in text output and a note that `slcan:tcp://` is
+  plain, unauthenticated TCP.
+- docs/exitcodes.md: `mpdo watch` among the streams, the exit 1 of
+  `heartbeat watch`, the integer range, the empty `--eds`, and
+  `invalid_eds` for files over 16 MiB. docs/json-output.md: `dropped`.
+- ARCHITECTURE.md: the three inputs that are checked after the safety
+  check (`mpdo scanner`/`dispatcher` entries after the split at commas, the
+  `cia402 move` target and `velocity`, `simulate --tick`). TESTING.md:
+  readiness, bounds, the 32-bit job and the fuzz discovery.
+
+### Tests
+
+- The command tests wait for the command to open its interface, or for
+  `simulate`'s `ready` record, and step on the records it writes, instead of
+  sleeping (`TestSimulateLSS` passes 30 runs with `-race -cpu 1`).
+- Bounds: a sparse file of 16 MiB + 1 byte through every command that reads
+  an EDS, DCF or concise DCF (exit 3, less than 4 MiB allocated), files of
+  exactly 16 MiB, named pipes read once, `/dev/zero`.
+- Dropped events in a `testing/synctest` bubble with a stalled stdout, the
+  integer flags of the whole command tree, the empty `--eds`, and ESC, BEL
+  and U+202E in an EDS, a DCF and a candump interface name.
+
+---
+
 ## v0.7.7
 
 **Date:** 2026-11-15

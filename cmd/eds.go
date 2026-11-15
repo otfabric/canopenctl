@@ -166,7 +166,8 @@ type showResult struct {
 func (r showResult) Text() string {
 	var b strings.Builder
 	d := r.Device
-	fmt.Fprintf(&b, "%s: %s %s (vendor %s %s, product %s, revision %s)\n", r.File, d.ProductName, r.Description, d.VendorName, d.VendorNumber, d.ProductNumber, d.RevisionNumber)
+	fmt.Fprintf(&b, "%s: %s %s (vendor %s %s, product %s, revision %s)\n", output.Sanitize(r.File), output.Sanitize(d.ProductName),
+		output.Sanitize(r.Description), output.Sanitize(d.VendorName), d.VendorNumber, d.ProductNumber, d.RevisionNumber)
 	fmt.Fprintf(&b, "%d RPDOs, %d TPDOs, LSS %v, bit rates %v kbit/s\n", d.RXPDOs, d.TXPDOs, d.LSS, d.BaudRates)
 	_ = output.WriteTable(&b, r.Headers(), r.Rows())
 	return strings.TrimRight(b.String(), "\n")
@@ -260,7 +261,7 @@ left out (eds validate reports them).`,
 			return a.emit("eds show", r)
 		},
 	}
-	c.Flags().IntVar(&node, "node-id", 0, "Evaluate $NODEID values for this node-ID (0: show them as $NODEID+...)")
+	intVar(c.Flags(), &node, "node-id", 0, "Evaluate $NODEID values for this node-ID (0: show them as $NODEID+...)")
 	c.Flags().StringVar(&rng, "range", "", "Only objects in this index range: 6000-6FFF, or one index")
 	return c
 }
@@ -436,9 +437,9 @@ kept); without --output it goes to stdout.`,
 	}
 	c.Flags().StringVar(&to, "to", "", "Target: dcf or eds (default: from the --output extension)")
 	c.Flags().StringVarP(&out, "output", "o", "", "Output file (default: stdout)")
-	c.Flags().IntVar(&node, "node-id", 0, "Node-ID of the DCF (default: the input DCF's)")
+	intVar(c.Flags(), &node, "node-id", 0, "Node-ID of the DCF (default: the input DCF's)")
 	c.Flags().StringVar(&nodeName, "node-name", "", "NodeName of the DCF's commissioning section")
-	c.Flags().IntVar(&baud, "baud", 0, "Baudrate (kbit/s) of the DCF's commissioning section")
+	intVar(c.Flags(), &baud, "baud", 0, "Baudrate (kbit/s) of the DCF's commissioning section")
 	return c
 }
 
@@ -458,11 +459,15 @@ SHA-256. The file must validate without errors.`,
 			if !validIdent(pkg) {
 				return errs.Invalid("--package %q: a Go package name (lower-case letters, digits, underscores)", pkg)
 			}
-			src, err := os.ReadFile(filepath.Clean(args[0]))
+			// Read once: the bytes parsed are the bytes hashed.
+			src, err := cli.ReadFile(args[0])
+			if errors.Is(err, cli.ErrFileSize) {
+				return &errs.Error{Kind: errs.KindInvalidInput, Code: errs.CodeInvalidEDS, Message: fmt.Sprintf("%s: %v", args[0], err), Cause: err}
+			}
 			if err != nil {
 				return errs.New(errs.KindInvalidInput, errs.CodeFileOpen, "cannot read EDS: %w", err)
 			}
-			f, err := cli.LoadEDS(args[0])
+			f, err := cli.ParseEDS(args[0], src)
 			if err != nil {
 				return err
 			}
@@ -529,7 +534,7 @@ type applyResult struct {
 func (r applyResult) Text() string {
 	var b strings.Builder
 	for _, e := range r.Entries {
-		fmt.Fprintf(&b, "%s = %s  %s\n", e.Key, e.Data, e.Name)
+		fmt.Fprintf(&b, "%s = %s  %s\n", e.Key, e.Data, output.Sanitize(e.Name))
 	}
 	if r.DryRun {
 		fmt.Fprintf(&b, "dry run: %d entries of %s would be written to node %d", len(r.Entries), r.File, r.Node)
@@ -648,6 +653,9 @@ Without --output the DCF goes to stdout.`,
 		Example: `  canopenctl dcf export 5 --eds io401.eds -o node5.dcf -i can0`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireEDS(edsPath); err != nil {
+				return err
+			}
 			node, err := cli.ParseNode(args[0], false)
 			if err != nil {
 				return err

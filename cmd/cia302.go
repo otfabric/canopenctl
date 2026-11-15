@@ -20,8 +20,10 @@ import (
 
 	"github.com/otfabric/canopenctl/internal/cli"
 	"github.com/otfabric/canopenctl/internal/errs"
+	"github.com/otfabric/canopenctl/internal/output"
 	"github.com/otfabric/go-canopen"
 	"github.com/otfabric/go-canopen/cdcf"
+	"github.com/otfabric/go-canopen/eds"
 	"github.com/otfabric/go-canopen/lss"
 	"github.com/otfabric/go-canopen/master"
 	"github.com/otfabric/go-canopen/od"
@@ -30,32 +32,46 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// loadConcise reads a node configuration: a concise DCF (binary, CiA
-// 302-3) or a DCF/EDS (text), whose configuration is turned into a
-// concise DCF for node (0: the DCF's node-ID) with the PDO sequence of
-// CiA 301. kind says which it was.
-func loadConcise(path string, node canopen.NodeID) (entries []cdcf.Entry, kind string, err error) {
-	b, err := os.ReadFile(filepath.Clean(path))
+// loadConcise reads a node configuration, once and at most
+// cli.MaxFileSize bytes of it: a concise DCF (binary, CiA 302-3) or a
+// DCF/EDS (text), whose configuration is turned into a concise DCF for
+// node (0: the DCF's node-ID) with the PDO sequence of CiA 301. kind says
+// which it was; f is the DCF/EDS as parsed (nil for a concise DCF).
+func loadConcise(path string, node canopen.NodeID) (entries []cdcf.Entry, kind string, f *eds.File, err error) {
+	b, err := cli.ReadFile(path)
+	if errors.Is(err, cli.ErrFileSize) {
+		return nil, "", nil, &errs.Error{Kind: errs.KindInvalidInput, Code: errs.CodeInvalidEDS, Message: fmt.Sprintf("%s: %v", path, err), Cause: err}
+	}
 	if err != nil {
-		return nil, "", errs.New(errs.KindInvalidInput, errs.CodeFileOpen, "cannot read %s: %w", path, err)
+		return nil, "", nil, errs.New(errs.KindInvalidInput, errs.CodeFileOpen, "cannot read %s: %w", path, err)
 	}
 	t := bytes.TrimLeft(b, "\xef\xbb\xbf \t\r\n")
 	if len(t) > 0 && (t[0] == '[' || t[0] == ';') {
-		f, err := cli.LoadEDS(path)
+		f, err := cli.ParseEDS(path, b)
 		if err != nil {
-			return nil, "", err
+			return nil, "", nil, err
 		}
 		e, err := cdcf.FromFile(f, node)
 		if err != nil {
-			return nil, "", &errs.Error{Kind: errs.KindInvalidInput, Code: errs.CodeInvalidEDS, Message: fmt.Sprintf("%s: %v", path, err), Cause: err}
+			return nil, "", nil, &errs.Error{Kind: errs.KindInvalidInput, Code: errs.CodeInvalidEDS, Message: fmt.Sprintf("%s: %v", path, err), Cause: err}
 		}
-		return e, "dcf", nil
+		return e, "dcf", f, nil
 	}
 	e, err := cdcf.Decode(b)
 	if err != nil {
-		return nil, "", errs.New(errs.KindInvalidInput, errs.CodeInvalidValue, "%s is neither a DCF nor a concise DCF: %w", path, err)
+		return nil, "", nil, errs.New(errs.KindInvalidInput, errs.CodeInvalidValue, "%s is neither a DCF nor a concise DCF: %w", path, err)
 	}
-	return e, "cdcf", nil
+	return e, "cdcf", nil, nil
+}
+
+// conciseNames describes the objects of a concise DCF for its entries:
+// --eds when given, else the DCF it was made from (f, already read), else
+// nothing.
+func conciseNames(edsPath, path string, f *eds.File, node canopen.NodeID) (*desc, error) {
+	if edsPath != "" || f == nil {
+		return loadDesc(edsPath, node)
+	}
+	return descOf(path, f, node)
 }
 
 func entriesJSON(entries []cdcf.Entry, d *desc) []entryJSON {
@@ -122,7 +138,7 @@ it); without it the binary goes to stdout.`,
 				note: fmt.Sprintf("%d entries", len(entries))})
 		},
 	}
-	c.Flags().IntVar(&nodeID, "node-id", 0, "Node-ID for $NODEID (default: the DCF's)")
+	intVar(c.Flags(), &nodeID, "node-id", 0, "Node-ID for $NODEID (default: the DCF's)")
 	c.Flags().StringVarP(&outPath, "output", "o", "", "Write the concise DCF to this file (default: stdout)")
 	return c
 }
@@ -137,7 +153,7 @@ type cdcfShowResult struct {
 func (r cdcfShowResult) Text() string {
 	var b strings.Builder
 	for _, e := range r.Entries {
-		fmt.Fprintf(&b, "%s = %s  %s\n", e.Key, e.Data, e.Name)
+		fmt.Fprintf(&b, "%s = %s  %s\n", e.Key, e.Data, output.Sanitize(e.Name))
 	}
 	fmt.Fprintf(&b, "%s: %d entries, %d bytes as a concise DCF", r.File, len(r.Entries), r.Size)
 	return b.String()
@@ -164,22 +180,18 @@ would write.`,
 			if nodeID < 0 || nodeID > 127 {
 				return errs.Invalid("--node-id %d: 1..127", nodeID)
 			}
-			entries, kind, err := loadConcise(args[0], canopen.NodeID(nodeID))
+			entries, kind, f, err := loadConcise(args[0], canopen.NodeID(nodeID))
 			if err != nil {
 				return err
 			}
-			names := edsPath
-			if names == "" && kind == "dcf" {
-				names = args[0]
-			}
-			d, err := loadDesc(names, 1)
+			d, err := conciseNames(edsPath, args[0], f, 1)
 			if err != nil {
 				return err
 			}
 			return a.emit("cdcf show", cdcfShowResult{File: args[0], Format: kind, Size: cdcf.Size(entries), Entries: entriesJSON(entries, d)})
 		},
 	}
-	c.Flags().IntVar(&nodeID, "node-id", 0, "Node-ID for $NODEID of a DCF (default: the DCF's)")
+	intVar(c.Flags(), &nodeID, "node-id", 0, "Node-ID for $NODEID of a DCF (default: the DCF's)")
 	c.Flags().StringVar(&edsPath, "eds", "", "EDS or DCF naming the objects")
 	return c
 }
@@ -213,15 +225,11 @@ error). --dry-run lists the entries without sending anything.`,
 			if err := bf.checkFD(); err != nil {
 				return err
 			}
-			entries, kind, err := loadConcise(args[1], node)
+			entries, _, f, err := loadConcise(args[1], node)
 			if err != nil {
 				return err
 			}
-			names := edsPath
-			if names == "" && kind == "dcf" {
-				names = args[1]
-			}
-			d, err := loadDesc(names, node)
+			d, err := conciseNames(edsPath, args[1], f, node)
 			if err != nil {
 				return err
 			}
@@ -431,7 +439,7 @@ func (p *programFlags) add(c *cobra.Command, transmits bool) {
 	p.bf.addFD(c, "use USDO instead of SDO (bulk transfer of the image)")
 	p.sf.add(c, false)
 	p.sf.addFD(c)
-	c.Flags().IntVar(&p.num, "program", 1, "Program number: the sub-index of 0x1F50/0x1F51 (1..254)")
+	intVar(c.Flags(), &p.num, "program", 1, "Program number: the sub-index of 0x1F50/0x1F51 (1..254)")
 }
 
 func (p *programFlags) validate() error {
@@ -874,7 +882,7 @@ reports them); a slave that failed makes the exit code 1.`,
 				}
 				sc := &slaveCfg{file: file}
 				if file != "" {
-					entries, _, err := loadConcise(file, id)
+					entries, _, _, err := loadConcise(file, id)
 					if err != nil {
 						return err
 					}
@@ -1083,7 +1091,7 @@ reports them); a slave that failed makes the exit code 1.`,
 	c.Flags().StringArrayVar(&slaves, "slave", nil, "A slave: NODE, or NODE=FILE with its DCF or concise DCF (repeatable)")
 	c.Flags().StringArrayVar(&expects, "expect", nil, "Expected identity of a slave: NODE=vendor:product:revision:serial in hexadecimal, 0 not checked (repeatable)")
 	c.Flags().StringVar(&optional, "optional", "", "Slaves that are not mandatory: 5,7-9")
-	c.Flags().IntVar(&masterID, "master-id", int(canopen.MaxNodeID), "Node-ID of canopenctl's manager node")
+	intVar(c.Flags(), &masterID, "master-id", int(canopen.MaxNodeID), "Node-ID of canopenctl's manager node")
 	c.Flags().BoolVar(&lssStep, "lss", false, "Give unconfigured devices the node-ID of the slave whose --expect identity they have (LSS Fastscan)")
 	c.Flags().BoolVar(&noStart, "no-start", false, "Leave the slaves pre-operational")
 	c.Flags().BoolVar(&storeCfg, "store", false, "Make each configured slave save its parameters (0x1010:01)")

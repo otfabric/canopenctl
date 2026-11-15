@@ -119,8 +119,8 @@ func newRoot(a *app) *cobra.Command {
 		},
 	}
 	root.PersistentFlags().String("format", formatDefault(), "Output format: text, json or table (env CANOPENCTL_FORMAT)")
-	root.PersistentFlags().Int("slcan-bitrate", 500000, "Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's)")
-	root.PersistentFlags().Int("slcan-baud", 115200, "Serial baud rate of an slcan adapter (USB adapters ignore it)")
+	intVar(root.PersistentFlags(), new(int), "slcan-bitrate", 500000, "Bit rate an slcan:<device> adapter is opened with (0: keep the adapter's)")
+	intVar(root.PersistentFlags(), new(int), "slcan-baud", 115200, "Serial baud rate of an slcan adapter (USB adapters ignore it)")
 	root.AddCommand(
 		newMonitorCmd(a), newDecodeCmd(a), newSDOCmd(a), newNMTCmd(a), newHeartbeatCmd(a), newScanCmd(a),
 		newEMCYCmd(a), newSyncCmd(a), newTimeCmd(a), newPDOCmd(a), newEDSCmd(a), newDCFCmd(a),

@@ -92,6 +92,27 @@ jobs:
           go-version-file: go.mod
       - run: make cross
 
+  # The tests on a 32-bit platform, where int has 32 bits (linux/arm/v7 is a
+  # released target): the integer flags, the size bounds and the node-ID
+  # tables. linux/386 runs natively on the runner; the race detector does
+  # not exist there, and without a vcan interface the interface tests skip.
+  test-386:
+    name: Tests on linux/386
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Vet and test as linux/386
+        env:
+          GOARCH: "386"
+          GOWORK: "off"
+        run: |
+          go vet ./...
+          go test -count=1 ./...
+
   fuzz:
     name: Fuzz
     runs-on: ubuntu-latest

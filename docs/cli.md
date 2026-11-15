@@ -335,7 +335,9 @@ guarding responses) of the network and reports each node's boot-ups and state
 changes. With --supervise every node (or those of --node) is supervised from
 its first heartbeat: a node silent for longer is reported lost once, and
 again when it resumes. It never transmits. At the end a summary lists the
-nodes; a heartbeat timeout during the watch makes the exit code 1.
+nodes and the events dropped because the output did not keep up; a heartbeat
+timeout during the watch makes the exit code 1, also when its record was
+dropped.
 
 Usage:
   canopenctl heartbeat watch [flags]

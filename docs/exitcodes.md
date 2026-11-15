@@ -9,9 +9,9 @@ usage errors.
 | Code | Kind | Meaning |
 |------|------|---------|
 | 0 | | Success |
-| 1 | | Findings: a result was written and it reports problems — `eds validate` found errors (or warnings with `--strict`), `decode` met malformed CANopen messages, `sdo dump` or `dcf export` could not read some objects, `scan` found a node that fails on 0x1018, `heartbeat watch` saw a heartbeat timeout, `sdo write --verify` read back another value, `boot` could not boot a slave, `lss assign-all` failed after assigning node-IDs. No error document follows |
-| 2 | `usage` | Unknown command or flag, missing required flag or argument, no `--interface` |
-| 3 | `invalid_input` | A value, node-ID, index, data type, mapping, file or combination of flags that does not make sense. Nothing was transmitted |
+| 1 | | Findings: a result was written and it reports problems — `eds validate` found errors (or warnings with `--strict`), `decode` met malformed CANopen messages, `sdo dump` or `dcf export` could not read some objects, `scan` found a node that fails on 0x1018, `heartbeat watch` saw a heartbeat timeout or ended with a supervised node lost, `sdo write --verify` read back another value, `boot` could not boot a slave, `lss assign-all` failed after assigning node-IDs. No error document follows |
+| 2 | `usage` | Unknown command or flag, missing required flag or argument (an empty `--eds ""` of `sdo dump` and `dcf export` counts as missing), no `--interface` |
+| 3 | `invalid_input` | A value, node-ID, index, data type, mapping, file or combination of flags that does not make sense, an integer flag outside -2147483648..2147483647 (on every platform). Nothing was transmitted |
 | 4 | `transport` | The interface does not exist, is down, or failed while in use |
 | 5 | `timeout` | A device did not answer: an SDO or USDO response (`sdo_timeout`, with the abort canopenctl sent), `nmt --wait`, a CiA 402 step (`--step-timeout`), a confirmed LSS service (`no_response`) |
 | 6 | `protocol` | The device violated the protocol (`sdo_protocol`: wrong toggle bit, unexpected command; the abort canopenctl sent is in `abort`), or sent data that does not fit the requested data type (`data_type_mismatch`) |
@@ -30,7 +30,7 @@ identifier:
 |--------|-------|
 | `invalid_input` | `usage`, `invalid_input` |
 | `invalid_value` | `invalid_input`: a value that does not parse as its data type |
-| `invalid_eds` | `invalid_input`: an EDS/DCF that cannot be read or built into a dictionary |
+| `invalid_eds` | `invalid_input`: an EDS/DCF that cannot be read or built into a dictionary, or an EDS, DCF or concise DCF larger than 16 MiB (16,777,216 bytes) |
 | `invalid_capture` | `invalid_input`: a trace that cannot be read |
 | `file_open_failed` | `invalid_input` |
 | `interface_unavailable` | `transport` |
@@ -70,9 +70,13 @@ most common:
 | 0x08000021 | ... because of local control |
 | 0x08000022 | ... because of the present device state |
 
-**Streams.** `monitor`, `heartbeat watch`, `emcy watch`, `pdo watch` and
-`simulate` end normally (exit 0, or 1 for `heartbeat watch` after a timeout)
-at `--count`, `--duration` or Ctrl-C (SIGINT/SIGTERM).
+**Streams.** `monitor`, `heartbeat watch`, `emcy watch`, `pdo watch`,
+`mpdo watch` and `simulate` end normally (exit 0, or 1 for `heartbeat watch`
+after a timeout) at `--count`, `--duration` or Ctrl-C (SIGINT/SIGTERM).
+`heartbeat watch` also ends with 1 when a supervised node is lost at the
+end, and when a timeout came while its output did not keep up, so that the
+timeout record was dropped (the summary's `dropped`, see
+[json-output.md](json-output.md)).
 
 **Transmitting commands** validate everything before the first frame: an
 invocation that exits 2, 3, 8, 9 or 13 has sent nothing.

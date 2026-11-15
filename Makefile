@@ -102,11 +102,15 @@ vuln: ## govulncheck
 	@govulncheck ./...
 
 FUZZTIME ?= 15s
-fuzz: ## Fuzz the structured CLI inputs (values, mappings, node lists, numbers, indices/types, LSS addresses, MPDO entries) and the trace and EDS file inputs for FUZZTIME each
-	@for f in FuzzParseValue FuzzParseMapping FuzzParseNodeList FuzzParseNumbers FuzzParseIndexSubType FuzzParseMPDOAndLSS; do \
-		go test -run='^$$' -fuzz="^$$f\$$" -fuzztime=$(FUZZTIME) ./internal/cli || exit 1; done
-	@for f in FuzzDecodeTrace FuzzEDSFile; do \
-		go test -run='^$$' -fuzz="^$$f\$$" -fuzztime=$(FUZZTIME) ./cmd || exit 1; done
+# The targets are discovered with go test -list, so that a new Fuzz function
+# is fuzzed without being added here. e2e is left out: its TestMain builds
+# the binary, and it has no fuzz targets.
+fuzz: ## Fuzz every Fuzz target of the module (found with go test -list) for FUZZTIME each
+	@n=0; for pkg in $$(go list ./... | grep -v /e2e); do \
+		list=$$(go test -list '^Fuzz' $$pkg) || { echo "$$list"; exit 1; }; \
+		for f in $$(echo "$$list" | grep '^Fuzz'); do n=$$((n+1)); \
+			go test -run='^$$' -fuzz="^$$f\$$" -fuzztime=$(FUZZTIME) $$pkg || exit 1; done; done; \
+	[ $$n -gt 0 ] || { echo "no fuzz targets found"; exit 1; }; echo "$$n fuzz targets"
 
 docs: ## Regenerate docs/cli.md from the --help texts
 	@scripts/gen-cli-doc.sh
